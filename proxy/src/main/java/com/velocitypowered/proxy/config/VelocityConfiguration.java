@@ -79,6 +79,11 @@ public class VelocityConfiguration implements ProxyConfig {
   private final ForcedHosts forcedHosts;
   @Expose
   private final Advanced advanced;
+
+  // [fallen's fork] mojang auth proxy
+  @Expose
+  private final AuthProxy authProxy;
+
   @Expose
   private final Query query;
   private final Metrics metrics;
@@ -90,10 +95,12 @@ public class VelocityConfiguration implements ProxyConfig {
   private boolean forceKeyAuthentication = true; // Added in 1.19
 
   private VelocityConfiguration(Servers servers, ForcedHosts forcedHosts, Advanced advanced,
+      AuthProxy authProxy,  // [fallen's fork] mojang auth proxy
       Query query, Metrics metrics) {
     this.servers = servers;
     this.forcedHosts = forcedHosts;
     this.advanced = advanced;
+    this.authProxy = authProxy;  // [fallen's fork] mojang auth proxy
     this.query = query;
     this.metrics = metrics;
   }
@@ -103,7 +110,9 @@ public class VelocityConfiguration implements ProxyConfig {
       PlayerInfoForwarding playerInfoForwardingMode, byte[] forwardingSecret,
       boolean onlineModeKickExistingPlayers, PingPassthroughMode pingPassthrough,
       boolean enablePlayerAddressLogging, Servers servers, ForcedHosts forcedHosts,
-      Advanced advanced, Query query, Metrics metrics, boolean forceKeyAuthentication) {
+      Advanced advanced,
+      AuthProxy authProxy,  // [fallen's fork] mojang auth proxy
+      Query query, Metrics metrics, boolean forceKeyAuthentication) {
     this.bind = bind;
     this.motd = motd;
     this.showMaxPlayers = showMaxPlayers;
@@ -118,6 +127,7 @@ public class VelocityConfiguration implements ProxyConfig {
     this.servers = servers;
     this.forcedHosts = forcedHosts;
     this.advanced = advanced;
+    this.authProxy = authProxy;  // [fallen's fork] mojang auth proxy
     this.query = query;
     this.metrics = metrics;
     this.forceKeyAuthentication = forceKeyAuthentication;
@@ -392,6 +402,24 @@ public class VelocityConfiguration implements ProxyConfig {
     return advanced.isLogPlayerConnections();
   }
 
+  // [fallen's fork] mojang auth proxy starts
+  public boolean isAuthProxyEnabled() {
+    return authProxy.isEnabled();
+  }
+
+  public String getAuthProxyType() {
+    return authProxy.getType();
+  }
+
+  public String getAuthProxyHostname() {
+    return authProxy.getHostname();
+  }
+
+  public int getAuthProxyPort() {
+    return authProxy.getPort();
+  }
+  // [fallen's fork] mojang auth proxy ends
+
   public boolean isForceKeyAuthentication() {
     return forceKeyAuthentication;
   }
@@ -548,6 +576,7 @@ public class VelocityConfiguration implements ProxyConfig {
     CommentedConfig serversConfig = config.get("servers");
     CommentedConfig forcedHostsConfig = config.get("forced-hosts");
     CommentedConfig advancedConfig = config.get("advanced");
+    CommentedConfig autoProxy = config.get("auth-proxy");
     CommentedConfig queryConfig = config.get("query");
     CommentedConfig metricsConfig = config.get("metrics");
     PlayerInfoForwarding forwardingMode = config.getEnumOrElse("player-info-forwarding-mode",
@@ -588,6 +617,7 @@ public class VelocityConfiguration implements ProxyConfig {
         new Servers(serversConfig),
         new ForcedHosts(forcedHostsConfig),
         new Advanced(advancedConfig),
+        new AuthProxy(autoProxy),
         new Query(queryConfig),
         new Metrics(metricsConfig),
         forceKeyAuthentication
@@ -854,6 +884,45 @@ public class VelocityConfiguration implements ProxyConfig {
           + ", logCommandExecutions=" + logCommandExecutions
           + ", logPlayerConnections=" + logPlayerConnections
           + '}';
+    }
+  }
+
+  /**
+   * [fallen's fork] mojang auth proxy.
+   */
+  private static class AuthProxy {
+    @Expose
+    private boolean enabled = false;
+    @Expose
+    private String type = "http";
+    @Expose
+    private String hostname = "127.0.0.1";
+    @Expose
+    private int port = 1081;
+
+    public AuthProxy(CommentedConfig config) {
+      if (config != null) {
+        this.enabled = config.getOrElse("enabled", false);
+        this.type = config.getOrElse("type", "http");
+        this.hostname = config.getOrElse("hostname", "127.0.0.1");
+        this.port = config.getIntOrElse("port", 1081);
+      }
+    }
+
+    public boolean isEnabled() {
+      return enabled;
+    }
+
+    public String getType() {
+      return type;
+    }
+
+    public String getHostname() {
+      return hostname;
+    }
+
+    public int getPort() {
+      return port;
     }
   }
 

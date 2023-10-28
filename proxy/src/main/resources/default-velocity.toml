@@ -141,6 +141,14 @@ log-command-executions = false
 # and disconnecting from the proxy.
 log-player-connections = true
 
+# [fallen's fork] mojang auth proxy
+# See readme for more information
+[auth-proxy]
+enabled = false
+type = "http"
+hostname = "127.0.0.1"
+port = 1081
+
 [query]
 # Whether to enable responding to GameSpy 4 query responses or not.
 enabled = false

@@ -48,12 +48,12 @@ import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.asynchttpclient.ListenableFuture;
 import org.asynchttpclient.Response;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -209,9 +209,11 @@ public class InitialLoginSessionHandler implements MinecraftSessionHandler {
         url += "&ip=" + urlFormParameterEscaper().escape(playerIp);
       }
 
-      ListenableFuture<Response> hasJoinedResponse = server.getAsyncHttpClient().prepareGet(url)
-          .execute();
-      hasJoinedResponse.addListener(() -> {
+      // [fallen's fork] mojang auth proxy: change the callback logics to make it reusable
+      var responseHolder = new Object() {
+        Future<Response> responseFuture;
+      };
+      Runnable requestDoneListener = () -> {
         if (mcConnection.isClosed()) {
           // The player disconnected after we authenticated them.
           return;
@@ -230,7 +232,9 @@ public class InitialLoginSessionHandler implements MinecraftSessionHandler {
         }
 
         try {
-          Response profileResponse = hasJoinedResponse.get();
+          // [fallen's fork] mojang auth proxy: tweak the future used
+          Response profileResponse = responseHolder.responseFuture.get();
+
           if (profileResponse.getStatusCode() == 200) {
             final GameProfile profile = GENERAL_GSON.fromJson(profileResponse.getResponseBody(),
                 GameProfile.class);
@@ -265,7 +269,45 @@ public class InitialLoginSessionHandler implements MinecraftSessionHandler {
           // not much we can do usefully
           Thread.currentThread().interrupt();
         }
-      }, mcConnection.eventLoop());
+      };
+
+      // [fallen's fork] mojang auth proxy starts
+      var finalUrl = url;
+      Runnable directAuth = () -> {
+        var directFuture = server.getAsyncHttpClient().prepareGet(finalUrl).execute();
+        responseHolder.responseFuture = directFuture;
+        directFuture.addListener(requestDoneListener, mcConnection.eventLoop());
+      };
+      var proxiedClient = server.getAsyncProxiedHttpClient();
+      if (proxiedClient != null) {
+        var proxiedFuture = proxiedClient.prepareGet(url).execute();
+        proxiedFuture.addListener(() -> {
+          try {
+            Response profileResponse = proxiedFuture.get();
+            if (profileResponse.getStatusCode() == 200) {
+              // proxied auth ok
+              responseHolder.responseFuture = proxiedFuture;
+              requestDoneListener.run();
+              return;
+            } else {
+              // proxied auth failed
+              logger.error("Error authenticating with proxy, http status code {}, try without",
+                  profileResponse.getStatusCode());
+            }
+          } catch (ExecutionException e) {
+            logger.error("Error authenticating with proxy, try without", e);
+          } catch (InterruptedException e) {
+            // not much we can do usefully
+            Thread.currentThread().interrupt();
+          }
+          // it's fine to authenticate failed with proxy, let's try again without it
+          directAuth.run();
+        }, mcConnection.eventLoop());
+      } else {
+        directAuth.run();
+      }
+      // [fallen's fork] mojang auth proxy ends
+
     } catch (GeneralSecurityException e) {
       logger.error("Unable to enable encryption", e);
       mcConnection.close(true);

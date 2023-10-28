@@ -39,6 +39,7 @@ import io.netty.util.concurrent.GlobalEventExecutor;
 import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.asynchttpclient.AsyncHttpClient;
@@ -46,6 +47,8 @@ import org.asynchttpclient.RequestBuilder;
 import org.asynchttpclient.filter.FilterContext;
 import org.asynchttpclient.filter.FilterContext.FilterContextBuilder;
 import org.asynchttpclient.filter.RequestFilter;
+import org.asynchttpclient.proxy.ProxyServer;
+import org.asynchttpclient.proxy.ProxyType;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
@@ -71,6 +74,11 @@ public final class ConnectionManager {
   private final SeparatePoolInetNameResolver resolver;
   private final AsyncHttpClient httpClient;
 
+  // [fallen's fork] mojang auth proxy starts
+  private AsyncHttpClient proxiedHttpClient;
+  private final Supplier<AsyncHttpClient> proxiedHttpClientSupplier;
+  // [fallen's fork] mojang auth proxy ends
+
   /**
    * Initalizes the {@code ConnectionManager}.
    *
@@ -86,7 +94,8 @@ public final class ConnectionManager {
     this.backendChannelInitializer = new BackendChannelInitializerHolder(
         new BackendChannelInitializer(this.server));
     this.resolver = new SeparatePoolInetNameResolver(GlobalEventExecutor.INSTANCE);
-    this.httpClient = asyncHttpClient(config()
+    // [fallen's fork] mojang auth proxy: reuse the builder
+    var builder = config()
         .setEventLoopGroup(this.workerGroup)
         .setUserAgent(server.getVersion().getName() + "/" + server.getVersion().getVersion())
         .addRequestFilter(new RequestFilter() {
@@ -98,8 +107,44 @@ public final class ConnectionManager {
                     .build())
                 .build();
           }
-        })
-        .build());
+        });
+    this.httpClient = asyncHttpClient(builder.build());
+
+    // [fallen's fork] mojang auth proxy: create the proxied client
+    // it needs to be lazy-initialized,
+    // cuz the server.getConfiguration() is not available yet in the constructor
+    this.proxiedHttpClient = null;
+    this.proxiedHttpClientSupplier = () -> {
+      if (server.getConfiguration().isAuthProxyEnabled()) {
+        ProxyType proxyType = null;
+        String type = server.getConfiguration().getAuthProxyType();
+        switch (type) {
+          case "socks4":
+            proxyType = ProxyType.SOCKS_V4;
+            break;
+          case "socks5":
+            proxyType = ProxyType.SOCKS_V5;
+            break;
+          case "http":
+            proxyType = ProxyType.HTTP;
+            break;
+          default:
+            LOGGER.error("Bad auth proxy type {}", type);
+        }
+        if (proxyType != ProxyType.HTTP) {
+          LOGGER.warn("Only http proxy is supported. See readme for more information");
+          proxyType = null;
+        }
+        if (proxyType != null) {
+          var hostname = server.getConfiguration().getAuthProxyHostname();
+          var port = server.getConfiguration().getAuthProxyPort();
+          var proxyServer = new ProxyServer.Builder(hostname, port).setProxyType(proxyType).build();
+          LOGGER.info("Mojang authorization proxy enabled, using {}://{}:{}", type, hostname, port);
+          return asyncHttpClient(builder.setProxyServer(proxyServer).build());
+        }
+      }
+      return null;
+    };
   }
 
   public void logChannelInformation() {
@@ -259,6 +304,16 @@ public final class ConnectionManager {
   public AsyncHttpClient getHttpClient() {
     return httpClient;
   }
+
+  // [fallen's fork] mojang auth proxy starts
+  public AsyncHttpClient getProxiedHttpClient() {
+    return proxiedHttpClient;
+  }
+
+  public void createProxiedHttpClient() {
+    proxiedHttpClient = proxiedHttpClientSupplier.get();
+  }
+  // [fallen's fork] mojang auth proxy ends
 
   public BackendChannelInitializerHolder getBackendChannelInitializer() {
     return this.backendChannelInitializer;
