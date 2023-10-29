@@ -56,6 +56,7 @@ import com.velocitypowered.proxy.protocol.packet.TabCompleteResponse;
 import com.velocitypowered.proxy.protocol.packet.UpsertPlayerInfo;
 import com.velocitypowered.proxy.protocol.packet.config.StartUpdate;
 import com.velocitypowered.proxy.protocol.util.PluginMessageUtil;
+import com.velocitypowered.proxy.tablist.TabListUuidRewriter;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
@@ -263,18 +264,27 @@ public class BackendPlaySessionHandler implements MinecraftSessionHandler {
 
   @Override
   public boolean handle(LegacyPlayerListItem packet) {
+    // [fallen's fork] tab list entry uuid rewrite: impl
+    TabListUuidRewriter.rewrite(serverConn.getPlayer(), packet);
+
     serverConn.getPlayer().getTabList().processLegacy(packet);
     return false;
   }
 
   @Override
   public boolean handle(UpsertPlayerInfo packet) {
+    // [fallen's fork] tab list entry uuid rewrite: impl
+    TabListUuidRewriter.rewrite(serverConn.getPlayer(), packet);
+
     serverConn.getPlayer().getTabList().processUpdate(packet);
     return false;
   }
 
   @Override
   public boolean handle(RemovePlayerInfo packet) {
+    // [fallen's fork] tab list entry uuid rewrite: impl
+    TabListUuidRewriter.rewrite(serverConn.getPlayer(), packet);
+
     serverConn.getPlayer().getTabList().processRemove(packet);
     return false;
   }

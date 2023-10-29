@@ -7,6 +7,7 @@ A list of small tweaks I made:
   - Supported proxy types: `socks4`, `socks5`, `http`
     - Due to [an issue](https://github.com/AsyncHttpClient/async-http-client/issues/1913) in the http library velocity uses, you can only use `http` proxy for now 
   - If enabled, velocity will firstly try authenticating with the given proxy, if failed it will try again without the proxy
+- Implement UUID rewrite for TabList packets, like what bungeecord does
 
 # Velocity
 

@@ -49,6 +49,7 @@ import com.velocitypowered.api.proxy.player.ResourcePackInfo;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import com.velocitypowered.api.util.GameProfile;
 import com.velocitypowered.api.util.ModInfo;
+import com.velocitypowered.api.util.UuidUtils;
 import com.velocitypowered.proxy.VelocityServer;
 import com.velocitypowered.proxy.connection.MinecraftConnection;
 import com.velocitypowered.proxy.connection.MinecraftConnectionAssociation;
@@ -168,6 +169,9 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
   private final ChatQueue chatQueue;
   private final ChatBuilderFactory chatBuilderFactory;
 
+  // [fallen's fork] tab list entry uuid rewrite: store offline uuid for reuse
+  private final UUID offlineUuid;
+
   ConnectedPlayer(VelocityServer server, GameProfile profile, MinecraftConnection connection,
       @Nullable InetSocketAddress virtualHost, boolean onlineMode,
       @Nullable IdentifiedKey playerKey) {
@@ -189,6 +193,9 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
     this.playerKey = playerKey;
     this.chatQueue = new ChatQueue(this);
     this.chatBuilderFactory = new ChatBuilderFactory(this.getProtocolVersion());
+
+    // [fallen's fork] tab list entry uuid rewrite: store offline uuid for reuse
+    this.offlineUuid = UuidUtils.generateOfflinePlayerUuid(this.getUsername());
   }
 
   public ChatBuilderFactory getChatBuilderFactory() {
@@ -225,6 +232,11 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
   @Override
   public UUID getUniqueId() {
     return profile.getId();
+  }
+
+  // [fallen's fork] tab list entry uuid rewrite: store offline uuid for reuse
+  public UUID getOfflineUuid() {
+    return offlineUuid;
   }
 
   @Override
