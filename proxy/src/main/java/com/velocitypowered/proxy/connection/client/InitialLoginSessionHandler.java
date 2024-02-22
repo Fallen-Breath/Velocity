@@ -52,6 +52,7 @@ import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.BiConsumer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.apache.logging.log4j.LogManager;
@@ -215,7 +216,11 @@ public class InitialLoginSessionHandler implements MinecraftSessionHandler {
               .uri(URI.create(url))
               .build();
       final HttpClient httpClient = server.createHttpClient();
-      httpClient.sendAsync(httpRequest, HttpResponse.BodyHandlers.ofString())
+
+      // [fallen's fork] mojang auth proxy: make the request progress reuseable
+      @SuppressWarnings("unchecked") final BiConsumer<HttpClient, Boolean>[] requester = new BiConsumer[1];
+      requester[0] = (client, retryable) ->
+        client.sendAsync(httpRequest, HttpResponse.BodyHandlers.ofString())
           .whenCompleteAsync((response, throwable) -> {
             if (mcConnection.isClosed()) {
               // The player disconnected after we authenticated them.
@@ -223,6 +228,13 @@ public class InitialLoginSessionHandler implements MinecraftSessionHandler {
             }
 
             if (throwable != null) {
+              // [fallen's fork] mojang auth proxy: fail-able with proxy mode
+              if (retryable) {
+                logger.error("Unable to authenticate player (proxied), try without", throwable);
+                requester[0].accept(httpClient, false);
+                return;
+              }
+
               logger.error("Unable to authenticate player", throwable);
               inbound.disconnect(Component.translatable("multiplayer.disconnect.authservers_down"));
               return;
@@ -259,6 +271,10 @@ public class InitialLoginSessionHandler implements MinecraftSessionHandler {
               // Apparently an offline-mode user logged onto this online-mode proxy.
               inbound.disconnect(
                   Component.translatable("velocity.error.online-mode-only", NamedTextColor.RED));
+            } else if (retryable) {
+              // [fallen's fork] mojang auth proxy: fail-able with proxy mode
+              logger.error("Error authenticating with proxy, http status code {}, try without", response.statusCode());
+              requester[0].accept(httpClient, false);
             } else {
               // Something else went wrong
               logger.error(
@@ -278,6 +294,16 @@ public class InitialLoginSessionHandler implements MinecraftSessionHandler {
               }
             }
           });
+
+      // [fallen's fork] mojang auth proxy starts
+      final HttpClient proxiedHttpClient = server.createProxiedHttpClient();
+      if (proxiedHttpClient != null) {
+        requester[0].accept(proxiedHttpClient, true);
+      } else {
+        requester[0].accept(httpClient, false);
+      }
+      // [fallen's fork] mojang auth proxy ends
+
     } catch (GeneralSecurityException e) {
       logger.error("Unable to enable encryption", e);
       mcConnection.close(true);

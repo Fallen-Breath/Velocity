@@ -5,7 +5,6 @@ A list of small tweaks I made:
 - Added proxy setting for authenticating player with `sessionserver.mojang.com`
   - The proxy setting is in the `auth-proxy` section in `velocity.toml`, of course you know how to fill it
   - Supported proxy types: `socks4`, `socks5`, `http`
-    - Due to [an issue](https://github.com/AsyncHttpClient/async-http-client/issues/1913) in the http library velocity uses, you can only use `http` proxy for now 
   - If enabled, velocity will firstly try authenticating with the given proxy, if failed it will try again without the proxy
 - Implement UUID rewrite for TabList packets, like what bungeecord does
 

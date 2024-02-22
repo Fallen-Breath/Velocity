@@ -265,9 +265,6 @@ public class VelocityServer implements ProxyServer, ForwardingAudience {
       this.cm.queryBind(configuration.getBind().getHostString(), configuration.getQueryPort());
     }
 
-    // [fallen's fork] mojang auth proxy: create the proxied http client
-    cm.createProxiedHttpClient();
-
     Metrics.VelocityMetrics.startMetrics(this, configuration.getMetrics());
   }
 
@@ -603,8 +600,9 @@ public class VelocityServer implements ProxyServer, ForwardingAudience {
   }
 
   // [fallen's fork] mojang auth proxy
-  public AsyncHttpClient getAsyncProxiedHttpClient() {
-    return cm.getProxiedHttpClient();
+  @Nullable
+  public HttpClient createProxiedHttpClient() {
+    return cm.createProxiedHttpClient();
   }
 
   public Ratelimiter getIpAttemptLimiter() {

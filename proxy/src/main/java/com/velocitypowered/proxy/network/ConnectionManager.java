@@ -33,11 +33,16 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.WriteBufferWaterMark;
 import io.netty.util.concurrent.GlobalEventExecutor;
+import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.ProxySelector;
+import java.net.SocketAddress;
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.function.Supplier;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -63,11 +68,6 @@ public final class ConnectionManager {
   public final BackendChannelInitializerHolder backendChannelInitializer;
 
   private final SeparatePoolInetNameResolver resolver;
-
-  // [fallen's fork] mojang auth proxy starts
-  private AsyncHttpClient proxiedHttpClient;
-  private final Supplier<AsyncHttpClient> proxiedHttpClientSupplier;
-  // [fallen's fork] mojang auth proxy ends
 
   /**
    * Initializes the {@code ConnectionManager}.
@@ -247,15 +247,46 @@ public final class ConnectionManager {
             .build();
   }
 
-  // [fallen's fork] mojang auth proxy starts
-  public AsyncHttpClient getProxiedHttpClient() {
-    return proxiedHttpClient;
-  }
+  // [fallen's fork] mojang auth proxy
+  @SuppressWarnings("checkstyle:MissingJavadocMethod")
+  @Nullable
+  public HttpClient createProxiedHttpClient() {
+    if (server.getConfiguration().isAuthProxyEnabled()) {
+      Proxy.Type proxyType = null;
+      String type = server.getConfiguration().getAuthProxyType();
+      switch (type) {
+        case "socks4":
+        case "socks5":
+          proxyType = Proxy.Type.SOCKS;
+          break;
+        case "http":
+          proxyType = Proxy.Type.HTTP;
+          break;
+        default:
+          LOGGER.error("Bad auth proxy type {}", type);
+      }
+      if (proxyType != null) {
+        var hostname = server.getConfiguration().getAuthProxyHostname();
+        var port = server.getConfiguration().getAuthProxyPort();
+        var finalProxyType = proxyType;
+        return HttpClient.newBuilder()
+                .proxy(new ProxySelector() {
+                  @Override
+                  public List<Proxy> select(URI uri) {
+                    return List.of(new Proxy(finalProxyType, new InetSocketAddress(hostname, port)));
+                  }
 
-  public void createProxiedHttpClient() {
-    proxiedHttpClient = proxiedHttpClientSupplier.get();
+                  @Override
+                  public void connectFailed(URI uri, SocketAddress sa, IOException ioe) {
+                    // do nothing as what java.net.ProxySelector.of does
+                  }
+                })
+                .executor(this.workerGroup)
+                .build();
+      }
+    }
+    return null;
   }
-  // [fallen's fork] mojang auth proxy ends
 
   public BackendChannelInitializerHolder getBackendChannelInitializer() {
     return this.backendChannelInitializer;

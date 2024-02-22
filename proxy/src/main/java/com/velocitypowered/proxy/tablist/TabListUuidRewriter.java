@@ -18,9 +18,9 @@
 package com.velocitypowered.proxy.tablist;
 
 import com.velocitypowered.proxy.connection.client.ConnectedPlayer;
-import com.velocitypowered.proxy.protocol.packet.LegacyPlayerListItem;
-import com.velocitypowered.proxy.protocol.packet.RemovePlayerInfo;
-import com.velocitypowered.proxy.protocol.packet.UpsertPlayerInfo;
+import com.velocitypowered.proxy.protocol.packet.LegacyPlayerListItemPacket;
+import com.velocitypowered.proxy.protocol.packet.RemovePlayerInfoPacket;
+import com.velocitypowered.proxy.protocol.packet.UpsertPlayerInfoPacket;
 import java.util.stream.Collectors;
 
 /**
@@ -30,10 +30,10 @@ public class TabListUuidRewriter {
   /**
    * Rewrite uuid for a LegacyPlayerListItem packet.
    */
-  public static void rewrite(ConnectedPlayer player, LegacyPlayerListItem packet) {
+  public static void rewrite(ConnectedPlayer player, LegacyPlayerListItemPacket packet) {
     packet.getItems().replaceAll(item -> {
       if (player.getOfflineUuid().equals(item.getUuid())) {
-        var newItem = new LegacyPlayerListItem.Item(player.getUniqueId());
+        var newItem = new LegacyPlayerListItemPacket.Item(player.getUniqueId());
 
         newItem.setName(item.getName());
         newItem.setProperties(item.getProperties());
@@ -52,10 +52,10 @@ public class TabListUuidRewriter {
   /**
    * Rewrite uuid for a UpsertPlayerInfo packet.
    */
-  public static void rewrite(ConnectedPlayer player, UpsertPlayerInfo packet) {
+  public static void rewrite(ConnectedPlayer player, UpsertPlayerInfoPacket packet) {
     packet.getEntries().replaceAll(entry -> {
       if (player.getOfflineUuid().equals(entry.getProfileId())) {
-        var newEntry = new UpsertPlayerInfo.Entry(player.getUniqueId());
+        var newEntry = new UpsertPlayerInfoPacket.Entry(player.getUniqueId());
 
         newEntry.setProfile(player.getGameProfile());
         newEntry.setListed(entry.isListed());
@@ -74,7 +74,7 @@ public class TabListUuidRewriter {
   /**
    * Rewrite uuid for a RemovePlayerInfo packet.
    */
-  public static void rewrite(ConnectedPlayer player, RemovePlayerInfo packet) {
+  public static void rewrite(ConnectedPlayer player, RemovePlayerInfoPacket packet) {
     var newProfiles = packet.getProfilesToRemove().stream()
         .map(uuid -> {
           if (player.getOfflineUuid().equals(uuid)) {
