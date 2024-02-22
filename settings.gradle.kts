@@ -4,7 +4,6 @@ dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         mavenCentral()
-        maven("https://s01.oss.sonatype.org/content/repositories/snapshots/") // adventure
         maven("https://repo.papermc.io/repository/maven-public/")
     }
 }
@@ -18,7 +17,7 @@ pluginManagement {
 }
 
 plugins {
-    id("org.gradle.toolchains.foojay-resolver-convention") version "0.4.0"
+    id("org.gradle.toolchains.foojay-resolver-convention") version "0.8.0"
 }
 
 rootProject.name = "velocity"
@@ -33,6 +32,12 @@ sequenceOf(
     project(project).projectDir = file(it)
 }
 
+// Include Configurate 3
 val deprecatedConfigurateModule = ":deprecated-configurate3"
 include(deprecatedConfigurateModule)
 project(deprecatedConfigurateModule).projectDir = file("proxy/deprecated/configurate3")
+
+// Log4J2 plugin
+val log4j2ProxyPlugin = ":velocity-proxy-log4j2-plugin"
+include(log4j2ProxyPlugin)
+project(log4j2ProxyPlugin).projectDir = file("proxy/log4j2-plugin")
