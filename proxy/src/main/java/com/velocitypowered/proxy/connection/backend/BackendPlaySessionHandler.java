@@ -25,9 +25,11 @@ import com.mojang.brigadier.tree.RootCommandNode;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.event.command.PlayerAvailableCommandsEvent;
 import com.velocitypowered.api.event.connection.PluginMessageEvent;
+import com.velocitypowered.api.event.connection.PreTransferEvent;
 import com.velocitypowered.api.event.player.PlayerResourcePackStatusEvent;
 import com.velocitypowered.api.event.player.ServerResourcePackSendEvent;
 import com.velocitypowered.api.event.proxy.ProxyPingEvent;
+import com.velocitypowered.api.network.ProtocolVersion;
 import com.velocitypowered.api.proxy.messages.ChannelIdentifier;
 import com.velocitypowered.api.proxy.player.ResourcePackInfo;
 import com.velocitypowered.proxy.VelocityServer;
@@ -56,6 +58,7 @@ import com.velocitypowered.proxy.protocol.packet.ResourcePackRequestPacket;
 import com.velocitypowered.proxy.protocol.packet.ResourcePackResponsePacket;
 import com.velocitypowered.proxy.protocol.packet.ServerDataPacket;
 import com.velocitypowered.proxy.protocol.packet.TabCompleteResponsePacket;
+import com.velocitypowered.proxy.protocol.packet.TransferPacket;
 import com.velocitypowered.proxy.protocol.packet.UpsertPlayerInfoPacket;
 import com.velocitypowered.proxy.protocol.packet.chat.ComponentHolder;
 import com.velocitypowered.proxy.protocol.packet.config.StartUpdatePacket;
@@ -66,6 +69,7 @@ import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.handler.timeout.ReadTimeoutException;
+import java.net.InetSocketAddress;
 import java.util.regex.Pattern;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -210,6 +214,14 @@ public class BackendPlaySessionHandler implements MinecraftSessionHandler {
           if (serverConn.getConnection() != null) {
             serverConn.getConnection().write(new ResourcePackResponsePacket(
                     packet.getId(), packet.getHash(), PlayerResourcePackStatusEvent.Status.ACCEPTED));
+            if (serverConn.getConnection().getProtocolVersion().noLessThan(ProtocolVersion.MINECRAFT_1_20_3)) {
+              serverConn.getConnection().write(new ResourcePackResponsePacket(
+                  packet.getId(), packet.getHash(),
+                  PlayerResourcePackStatusEvent.Status.DOWNLOADED));
+            }
+            serverConn.getConnection().write(new ResourcePackResponsePacket(
+                packet.getId(), packet.getHash(),
+                PlayerResourcePackStatusEvent.Status.SUCCESSFUL));
           }
           if (modifiedPack) {
             logger.warn("A plugin has tried to modify a ResourcePack provided by the backend server "
@@ -361,6 +373,30 @@ public class BackendPlaySessionHandler implements MinecraftSessionHandler {
                 pingEvent.getPing().getDescriptionComponent()),
                 pingEvent.getPing().getFavicon().orElse(null), packet.isSecureChatEnforced())),
         playerConnection.eventLoop());
+    return true;
+  }
+
+  @Override
+  public boolean handle(TransferPacket packet) {
+    final InetSocketAddress originalAddress = packet.address();
+    if (originalAddress == null) {
+      logger.error("""
+          Unexpected nullable address received in TransferPacket \
+          from Backend Server in Play State""");
+      return true;
+    }
+    this.server.getEventManager()
+        .fire(new PreTransferEvent(this.serverConn.getPlayer(), originalAddress))
+        .thenAcceptAsync(event -> {
+          if (event.getResult().isAllowed()) {
+            InetSocketAddress resultedAddress = event.getResult().address();
+            if (resultedAddress == null) {
+              resultedAddress = originalAddress;
+            }
+            this.playerConnection.write(new TransferPacket(
+                    resultedAddress.getHostName(), resultedAddress.getPort()));
+          }
+        }, playerConnection.eventLoop());
     return true;
   }
 

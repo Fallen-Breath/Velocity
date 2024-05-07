@@ -13,12 +13,14 @@ import com.velocitypowered.api.proxy.crypto.KeyIdentifiable;
 import com.velocitypowered.api.proxy.messages.ChannelIdentifier;
 import com.velocitypowered.api.proxy.messages.ChannelMessageSink;
 import com.velocitypowered.api.proxy.messages.ChannelMessageSource;
+import com.velocitypowered.api.proxy.messages.PluginMessageEncoder;
 import com.velocitypowered.api.proxy.player.PlayerSettings;
 import com.velocitypowered.api.proxy.player.ResourcePackInfo;
 import com.velocitypowered.api.proxy.player.TabList;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import com.velocitypowered.api.util.GameProfile;
 import com.velocitypowered.api.util.ModInfo;
+import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
@@ -190,7 +192,7 @@ public interface Player extends
    *
    * @param reason component with the reason
    */
-  void disconnect(net.kyori.adventure.text.Component reason);
+  void disconnect(Component reason);
 
   /**
    * Sends chat input onto the players current server as if they typed it into the client chat box.
@@ -282,16 +284,42 @@ public interface Player extends
   @NotNull Collection<ResourcePackInfo> getPendingResourcePacks();
 
   /**
-   * <strong>Note that this method does not send a plugin message to the server the player
+   * {@inheritDoc}
+   *
+   * <p><strong>Note that this method does not send a plugin message to the server the player
    * is connected to.</strong> You should only use this method if you are trying to communicate
-   * with a mod that is installed on the player's client. To send a plugin message to the server
+   * with a mod that is installed on the player's client.</p>
+   *
+   * <p>To send a plugin message to the server
    * from the player, you should use the equivalent method on the instance returned by
    * {@link #getCurrentServer()}.
    *
-   * @inheritDoc
+   * <pre>
+   *    final ChannelIdentifier identifier;
+   *    final Player player;
+   *    player.getCurrentServer()
+   *          .map(ServerConnection::getServer)
+   *          .ifPresent((RegisteredServer server) -> {
+   *            server.sendPluginMessage(identifier, data);
+   *          });
+   *  </pre>
+   *
    */
   @Override
-  boolean sendPluginMessage(@NotNull ChannelIdentifier identifier, byte @NotNull[] data);
+  boolean sendPluginMessage(@NotNull ChannelIdentifier identifier, byte @NotNull [] data);
+
+  /**
+   * {@inheritDoc}
+   * <p><strong>Note that this method does not send a plugin message to the server the player
+   * is connected to.</strong> You should only use this method if you are trying to communicate
+   * with a mod that is installed on the player's client.</p>
+   *
+   * <p>To send a plugin message to the server
+   * from the player, you should use the equivalent method on the instance returned by
+   * {@link #getCurrentServer()}.
+   */
+  @Override
+  boolean sendPluginMessage(@NotNull ChannelIdentifier identifier, @NotNull PluginMessageEncoder dataEncoder);
 
   @Override
   default @NotNull Key key() {
@@ -399,4 +427,13 @@ public interface Player extends
   @Override
   default void openBook(@NotNull Book book) {
   }
+
+  /**
+   * Transfers a Player to a host.
+   *
+   * @param address the host address
+   * @throws IllegalArgumentException if the player is from a version lower than 1.20.5
+   * @since 3.3.0
+   */
+  void transferToHost(@NotNull InetSocketAddress address);
 }

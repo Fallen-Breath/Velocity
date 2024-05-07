@@ -30,6 +30,7 @@ import com.velocitypowered.proxy.config.migration.ConfigurationMigration;
 import com.velocitypowered.proxy.config.migration.ForwardingMigration;
 import com.velocitypowered.proxy.config.migration.KeyAuthenticationMigration;
 import com.velocitypowered.proxy.config.migration.MotdMigration;
+import com.velocitypowered.proxy.config.migration.TransferIntegrationMigration;
 import com.velocitypowered.proxy.util.AddressUtil;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
@@ -408,6 +409,10 @@ public class VelocityConfiguration implements ProxyConfig {
     return advanced.isLogPlayerConnections();
   }
 
+  public boolean isAcceptTransfers() {
+    return this.advanced.isAcceptTransfers();
+  }
+
   // [fallen's fork] mojang auth proxy starts
   public boolean isAuthProxyEnabled() {
     return authProxy.isEnabled();
@@ -484,7 +489,8 @@ public class VelocityConfiguration implements ProxyConfig {
       final ConfigurationMigration[] migrations = {
           new ForwardingMigration(),
           new KeyAuthenticationMigration(),
-          new MotdMigration()
+          new MotdMigration(),
+          new TransferIntegrationMigration()
       };
 
       for (final ConfigurationMigration migration : migrations) {
@@ -532,7 +538,7 @@ public class VelocityConfiguration implements ProxyConfig {
       final boolean forceKeyAuthentication = config.getOrElse("force-key-authentication", true);
       final boolean announceForge = config.getOrElse("announce-forge", true);
       final boolean preventClientProxyConnections = config.getOrElse(
-              "prevent-client-proxy-connections", true);
+              "prevent-client-proxy-connections", false);
       final boolean kickExisting = config.getOrElse("kick-existing-players", false);
       final boolean enablePlayerAddressLogging = config.getOrElse(
               "enable-player-address-logging", true);
@@ -738,6 +744,8 @@ public class VelocityConfiguration implements ProxyConfig {
     private boolean logCommandExecutions = false;
     @Expose
     private boolean logPlayerConnections = true;
+    @Expose
+    private boolean acceptTransfers = false;
 
     private Advanced() {
     }
@@ -762,6 +770,7 @@ public class VelocityConfiguration implements ProxyConfig {
         this.announceProxyCommands = config.getOrElse("announce-proxy-commands", true);
         this.logCommandExecutions = config.getOrElse("log-command-executions", false);
         this.logPlayerConnections = config.getOrElse("log-player-connections", true);
+        this.acceptTransfers = config.getOrElse("accepts-transfers", false);
       }
     }
 
@@ -821,6 +830,10 @@ public class VelocityConfiguration implements ProxyConfig {
       return logPlayerConnections;
     }
 
+    public boolean isAcceptTransfers() {
+      return this.acceptTransfers;
+    }
+
     @Override
     public String toString() {
       return "Advanced{"
@@ -837,6 +850,7 @@ public class VelocityConfiguration implements ProxyConfig {
           + ", announceProxyCommands=" + announceProxyCommands
           + ", logCommandExecutions=" + logCommandExecutions
           + ", logPlayerConnections=" + logPlayerConnections
+          + ", acceptTransfers=" + acceptTransfers
           + '}';
     }
   }
