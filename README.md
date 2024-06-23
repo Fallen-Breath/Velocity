@@ -7,6 +7,7 @@ A list of small tweaks I made:
   - Supported proxy types: `socks4`, `socks5`, `http`
   - If enabled, velocity will firstly try authenticating with the given proxy, if failed it will try again without the proxy
 - Implement UUID rewrite for TabList packets, like what bungeecord does
+  - So `online-mode=true` on velocity + `online-mode=false` on backend mc servers + `player-info-forwarding-mode=none` can correctly work
 
 # Velocity
 
