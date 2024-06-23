@@ -188,7 +188,7 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
   private final ChatQueue chatQueue;
   private final ChatBuilderFactory chatBuilderFactory;
 
-  // [fallen's fork] tab list entry uuid rewrite: store offline uuid for reuse
+  // [fallen's fork] player uuid rewrite: store offline uuid for reuse
   private final UUID offlineUuid;
 
   ConnectedPlayer(VelocityServer server, GameProfile profile, MinecraftConnection connection,
@@ -214,7 +214,7 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
     this.chatBuilderFactory = new ChatBuilderFactory(this.getProtocolVersion());
     this.resourcePackHandler = ResourcePackHandler.create(this, server);
 
-    // [fallen's fork] tab list entry uuid rewrite: store offline uuid for reuse
+    // [fallen's fork] player uuid rewrite: store offline uuid for reuse
     this.offlineUuid = UuidUtils.generateOfflinePlayerUuid(this.getUsername());
   }
 
@@ -267,7 +267,8 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
     return profile.getId();
   }
 
-  // [fallen's fork] tab list entry uuid rewrite: store offline uuid for reuse
+  // [fallen's fork] player uuid rewrite: store offline uuid for reuse
+  @Override
   public UUID getOfflineUuid() {
     return offlineUuid;
   }

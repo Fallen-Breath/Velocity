@@ -78,6 +78,9 @@ import com.velocitypowered.proxy.protocol.packet.title.TitleClearPacket;
 import com.velocitypowered.proxy.protocol.packet.title.TitleSubtitlePacket;
 import com.velocitypowered.proxy.protocol.packet.title.TitleTextPacket;
 import com.velocitypowered.proxy.protocol.packet.title.TitleTimesPacket;
+import com.velocitypowered.proxy.protocol.packet.uuidrewrite.UrSpawnEntityS2CPacket;
+import com.velocitypowered.proxy.protocol.packet.uuidrewrite.UrSpawnPlayerS2CPacket;
+import com.velocitypowered.proxy.protocol.packet.uuidrewrite.UrSpectatorTeleportC2SPacket;
 import io.netty.buffer.ByteBuf;
 
 /**
@@ -308,6 +311,20 @@ public interface MinecraftSessionHandler {
   default boolean handle(ActiveFeaturesPacket packet) {
     return false;
   }
+
+  // [fallen's fork] player uuid rewrite - entity packet
+  default boolean handle(UrSpawnPlayerS2CPacket packet) {
+    return false;
+  }
+
+  default boolean handle(UrSpawnEntityS2CPacket packet) {
+    return false;
+  }
+
+  default boolean handle(UrSpectatorTeleportC2SPacket packet) {
+    return false;
+  }
+  // [fallen's fork] ends
 
   default boolean handle(FinishedUpdatePacket packet) {
     return false;

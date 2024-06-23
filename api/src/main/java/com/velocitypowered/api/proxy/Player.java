@@ -81,6 +81,14 @@ public interface Player extends
    */
   UUID getUniqueId();
 
+  // [fallen's fork] player uuid rewrite: store offline uuid for reuse
+  /**
+   * Returns the player's offline UUID.
+   *
+   * @return the UUID
+   */
+  UUID getOfflineUuid();
+
   /**
    * Returns the server that the player is currently connected to.
    *

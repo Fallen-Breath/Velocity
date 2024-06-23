@@ -66,6 +66,9 @@ import com.velocitypowered.proxy.protocol.packet.TransferPacket;
 import com.velocitypowered.proxy.protocol.packet.UpsertPlayerInfoPacket;
 import com.velocitypowered.proxy.protocol.packet.chat.ComponentHolder;
 import com.velocitypowered.proxy.protocol.packet.config.StartUpdatePacket;
+import com.velocitypowered.proxy.protocol.packet.uuidrewrite.EntityPacketUuidRewriter;
+import com.velocitypowered.proxy.protocol.packet.uuidrewrite.UrSpawnEntityS2CPacket;
+import com.velocitypowered.proxy.protocol.packet.uuidrewrite.UrSpawnPlayerS2CPacket;
 import com.velocitypowered.proxy.protocol.util.PluginMessageUtil;
 import com.velocitypowered.proxy.tablist.TabListUuidRewriter;
 import io.netty.buffer.ByteBuf;
@@ -322,8 +325,8 @@ public class BackendPlaySessionHandler implements MinecraftSessionHandler {
 
   @Override
   public boolean handle(LegacyPlayerListItemPacket packet) {
-    // [fallen's fork] tab list entry uuid rewrite: impl
-    TabListUuidRewriter.rewrite(serverConn.getPlayer(), packet);
+    // [fallen's fork] player uuid rewrite - tab list entry: impl
+    TabListUuidRewriter.rewrite(server, packet);
 
     serverConn.getPlayer().getTabList().processLegacy(packet);
     return false;
@@ -331,8 +334,8 @@ public class BackendPlaySessionHandler implements MinecraftSessionHandler {
 
   @Override
   public boolean handle(UpsertPlayerInfoPacket packet) {
-    // [fallen's fork] tab list entry uuid rewrite: impl
-    TabListUuidRewriter.rewrite(serverConn.getPlayer(), packet);
+    // [fallen's fork] player uuid rewrite - tab list entry: impl
+    TabListUuidRewriter.rewrite(server, packet);
 
     serverConn.getPlayer().getTabList().processUpdate(packet);
     return false;
@@ -340,12 +343,26 @@ public class BackendPlaySessionHandler implements MinecraftSessionHandler {
 
   @Override
   public boolean handle(RemovePlayerInfoPacket packet) {
-    // [fallen's fork] tab list entry uuid rewrite: impl
-    TabListUuidRewriter.rewrite(serverConn.getPlayer(), packet);
+    // [fallen's fork] player uuid rewrite - tab list entry: impl
+    TabListUuidRewriter.rewrite(server, packet);
 
     serverConn.getPlayer().getTabList().processRemove(packet);
     return false;
   }
+
+  // [fallen's fork] player uuid rewrite - entity packet
+  @Override
+  public boolean handle(UrSpawnPlayerS2CPacket packet) {
+    EntityPacketUuidRewriter.rewriteS2C(server, serverConn.getPlayer(), packet);
+    return false;
+  }
+
+  @Override
+  public boolean handle(UrSpawnEntityS2CPacket packet) {
+    EntityPacketUuidRewriter.rewriteS2C(server, serverConn.getPlayer(), packet);
+    return false;
+  }
+  // [fallen's fork] ends
 
   @Override
   public boolean handle(AvailableCommandsPacket commands) {

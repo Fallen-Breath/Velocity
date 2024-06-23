@@ -108,6 +108,9 @@ import com.velocitypowered.proxy.protocol.packet.title.TitleClearPacket;
 import com.velocitypowered.proxy.protocol.packet.title.TitleSubtitlePacket;
 import com.velocitypowered.proxy.protocol.packet.title.TitleTextPacket;
 import com.velocitypowered.proxy.protocol.packet.title.TitleTimesPacket;
+import com.velocitypowered.proxy.protocol.packet.uuidrewrite.UrSpawnEntityS2CPacket;
+import com.velocitypowered.proxy.protocol.packet.uuidrewrite.UrSpawnPlayerS2CPacket;
+import com.velocitypowered.proxy.protocol.packet.uuidrewrite.UrSpectatorTeleportC2SPacket;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.netty.util.collection.IntObjectHashMap;
 import io.netty.util.collection.IntObjectMap;
@@ -670,6 +673,30 @@ public enum StateRegistry {
               map(0x7A, MINECRAFT_1_21, false));
       clientbound.register(ClientboundServerLinksPacket.class, ClientboundServerLinksPacket::new,
               map(0x7B, MINECRAFT_1_21, false));
+
+      // [fallen's fork] player uuid rewrite - entity packet
+      clientbound.register(UrSpawnPlayerS2CPacket.class, UrSpawnPlayerS2CPacket::new,
+          map(0x05, MINECRAFT_1_8, false),
+          map(0x04, MINECRAFT_1_16, false),
+          map(0x02, MINECRAFT_1_19, false),
+          map(0x03, MINECRAFT_1_19_4, false),
+          map(-1, MINECRAFT_1_20_2, false));
+      clientbound.register(UrSpawnEntityS2CPacket.class, UrSpawnEntityS2CPacket::new,
+          map(0x01, MINECRAFT_1_20_2, false));
+      serverbound.register(UrSpectatorTeleportC2SPacket.class, UrSpectatorTeleportC2SPacket::new,
+          map(0x18, MINECRAFT_1_8, false),
+          map(0x1B, MINECRAFT_1_9, false),
+          map(0x1E, MINECRAFT_1_12, false),
+          map(0x28, MINECRAFT_1_13, false),
+          map(0x2B, MINECRAFT_1_14, false),
+          map(0x2C, MINECRAFT_1_16, false),
+          map(0x2D, MINECRAFT_1_16_2, false),
+          map(0x2F, MINECRAFT_1_19, false),
+          map(0x30, MINECRAFT_1_19_1, false),
+          map(0x33, MINECRAFT_1_20_2, false),
+          map(0x34, MINECRAFT_1_20_3, false),
+          map(0x37, MINECRAFT_1_20_5, false));
+      // [fallen's fork] ends
     }
   },
   LOGIN {
@@ -802,6 +829,11 @@ public enum StateRegistry {
         if (from.noLessThan(to) && from != lastInList) {
           throw new IllegalArgumentException(String.format(
               "Next mapping version (%s) should be lower then current (%s)", to, from));
+        }
+
+        // [fallen's fork] support skipping id=-1
+        if (current.id == -1) {
+          break;
         }
 
         for (ProtocolVersion protocol : EnumSet.range(from, to)) {

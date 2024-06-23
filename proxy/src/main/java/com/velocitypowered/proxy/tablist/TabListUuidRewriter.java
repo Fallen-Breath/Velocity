@@ -17,23 +17,39 @@
 
 package com.velocitypowered.proxy.tablist;
 
-import com.velocitypowered.proxy.connection.client.ConnectedPlayer;
+import com.velocitypowered.api.proxy.Player;
+import com.velocitypowered.proxy.VelocityServer;
 import com.velocitypowered.proxy.protocol.packet.LegacyPlayerListItemPacket;
 import com.velocitypowered.proxy.protocol.packet.RemovePlayerInfoPacket;
 import com.velocitypowered.proxy.protocol.packet.UpsertPlayerInfoPacket;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * [fallen's fork] tab list entry uuid rewrite: rewrite logic.
+ * [fallen's fork] player uuid rewrite - tab list entry: rewrite logic.
  */
 public class TabListUuidRewriter {
   /**
+   * Common use case: input uuid is an offline uuid, and we want to get its online uuid.
+   */
+  private static Optional<UUID> getRealUuid(VelocityServer server, UUID playerUuid) {
+    for (Player player : server.getAllPlayers()) {
+      if (player.getOfflineUuid().equals(playerUuid)) {
+        return Optional.of(player.getUniqueId());
+      }
+    }
+    return Optional.empty();
+  }
+
+  /**
    * Rewrite uuid for a LegacyPlayerListItem packet.
    */
-  public static void rewrite(ConnectedPlayer player, LegacyPlayerListItemPacket packet) {
+  public static void rewrite(VelocityServer server, LegacyPlayerListItemPacket packet) {
     packet.getItems().replaceAll(item -> {
-      if (player.getOfflineUuid().equals(item.getUuid())) {
-        var newItem = new LegacyPlayerListItemPacket.Item(player.getUniqueId());
+      var realUuid = getRealUuid(server, item.getUuid());
+      if (realUuid.isPresent() && !realUuid.get().equals(item.getUuid())) {
+        var newItem = new LegacyPlayerListItemPacket.Item(realUuid.get());
 
         newItem.setName(item.getName());
         newItem.setProperties(item.getProperties());
@@ -52,12 +68,13 @@ public class TabListUuidRewriter {
   /**
    * Rewrite uuid for a UpsertPlayerInfo packet.
    */
-  public static void rewrite(ConnectedPlayer player, UpsertPlayerInfoPacket packet) {
+  public static void rewrite(VelocityServer server, UpsertPlayerInfoPacket packet) {
     packet.getEntries().replaceAll(entry -> {
-      if (player.getOfflineUuid().equals(entry.getProfileId())) {
-        var newEntry = new UpsertPlayerInfoPacket.Entry(player.getUniqueId());
+      var realUuid = getRealUuid(server, entry.getProfileId());
+      if (realUuid.isPresent() && !realUuid.get().equals(entry.getProfileId())) {
+        var newEntry = new UpsertPlayerInfoPacket.Entry(realUuid.get());
 
-        newEntry.setProfile(player.getGameProfile());
+        newEntry.setProfile(entry.getProfile());
         newEntry.setListed(entry.isListed());
         newEntry.setLatency(entry.getLatency());
         newEntry.setGameMode(entry.getGameMode());
@@ -74,14 +91,9 @@ public class TabListUuidRewriter {
   /**
    * Rewrite uuid for a RemovePlayerInfo packet.
    */
-  public static void rewrite(ConnectedPlayer player, RemovePlayerInfoPacket packet) {
+  public static void rewrite(VelocityServer server, RemovePlayerInfoPacket packet) {
     var newProfiles = packet.getProfilesToRemove().stream()
-        .map(uuid -> {
-          if (player.getOfflineUuid().equals(uuid)) {
-            uuid = player.getUniqueId();
-          }
-          return uuid;
-        })
+        .map(uuid -> getRealUuid(server, uuid).orElse(uuid))
         .collect(Collectors.toList());
     packet.setProfilesToRemove(newProfiles);
   }

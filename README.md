@@ -6,8 +6,14 @@ A list of small tweaks I made:
   - The proxy setting is in the `auth-proxy` section in `velocity.toml`, of course you know how to fill it
   - Supported proxy types: `socks4`, `socks5`, `http`
   - If enabled, velocity will firstly try authenticating with the given proxy, if failed it will try again without the proxy
-- Implement UUID rewrite for TabList packets, like what bungeecord does
-  - So `online-mode=true` on velocity + `online-mode=false` on backend mc servers + `player-info-forwarding-mode=none` can correctly work
+- Implement player UUID rewrite, like what bungeecord does. 
+  Make setup with online velocity + offline Minecraft server work correctly
+  (`online-mode=true` on velocity + `online-mode=false` on backend mc servers + `player-info-forwarding-mode=none`)
+  - TabList packets rewrite
+    - Affects `LegacyPlayerListItemPacket`, `UpsertPlayerInfoPacket`, `RemovePlayerInfoPacket` packets
+    - Rewrites player UUIDs inside those packets to their UUIDs in the velocity server
+  - Entity packets rewrite
+    - Rewrites player UUIDs inside player creation packets and spectator teleport packets, to their UUIDs in the velocity server
 
 # Velocity
 
