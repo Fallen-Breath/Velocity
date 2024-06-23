@@ -19,6 +19,7 @@ package com.velocitypowered.proxy.tablist;
 
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.proxy.VelocityServer;
+import com.velocitypowered.proxy.config.PlayerInfoForwarding;
 import com.velocitypowered.proxy.protocol.packet.LegacyPlayerListItemPacket;
 import com.velocitypowered.proxy.protocol.packet.RemovePlayerInfoPacket;
 import com.velocitypowered.proxy.protocol.packet.UpsertPlayerInfoPacket;
@@ -30,6 +31,12 @@ import java.util.stream.Collectors;
  * [fallen's fork] player uuid rewrite - tab list entry: rewrite logic.
  */
 public class TabListUuidRewriter {
+
+  private static boolean shouldRewrite(VelocityServer server) {
+    var config = server.getConfiguration();
+    return config.isOnlineMode() && config.getPlayerInfoForwardingMode() == PlayerInfoForwarding.NONE;
+  }
+
   /**
    * Common use case: input uuid is an offline uuid, and we want to get its online uuid.
    */
@@ -46,6 +53,9 @@ public class TabListUuidRewriter {
    * Rewrite uuid for a LegacyPlayerListItem packet.
    */
   public static void rewrite(VelocityServer server, LegacyPlayerListItemPacket packet) {
+    if (!shouldRewrite(server)) {
+      return;
+    }
     packet.getItems().replaceAll(item -> {
       var realUuid = getRealUuid(server, item.getUuid());
       if (realUuid.isPresent() && !realUuid.get().equals(item.getUuid())) {
@@ -69,6 +79,9 @@ public class TabListUuidRewriter {
    * Rewrite uuid for a UpsertPlayerInfo packet.
    */
   public static void rewrite(VelocityServer server, UpsertPlayerInfoPacket packet) {
+    if (!shouldRewrite(server)) {
+      return;
+    }
     packet.getEntries().replaceAll(entry -> {
       var realUuid = getRealUuid(server, entry.getProfileId());
       if (realUuid.isPresent() && !realUuid.get().equals(entry.getProfileId())) {
@@ -92,6 +105,9 @@ public class TabListUuidRewriter {
    * Rewrite uuid for a RemovePlayerInfo packet.
    */
   public static void rewrite(VelocityServer server, RemovePlayerInfoPacket packet) {
+    if (!shouldRewrite(server)) {
+      return;
+    }
     var newProfiles = packet.getProfilesToRemove().stream()
         .map(uuid -> getRealUuid(server, uuid).orElse(uuid))
         .collect(Collectors.toList());

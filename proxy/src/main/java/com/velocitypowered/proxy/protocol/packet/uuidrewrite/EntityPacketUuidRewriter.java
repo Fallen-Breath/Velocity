@@ -38,7 +38,7 @@ public class EntityPacketUuidRewriter {
                               Function<Player, UUID> uuidFrom, Function<Player, UUID> uuidTo) {
     var config = server.getConfiguration();
     if (!(config.isOnlineMode() && config.getPlayerInfoForwardingMode() == PlayerInfoForwarding.NONE)) {
-      return;
+      return;  // early return for performance optimization
     }
     if (!packet.isPlayer()) {
       return;
