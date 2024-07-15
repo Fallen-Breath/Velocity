@@ -20,11 +20,16 @@ package com.velocitypowered.proxy.protocol.packet.uuidrewrite;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.proxy.VelocityServer;
 import com.velocitypowered.proxy.config.PlayerInfoForwarding;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.UUID;
 import java.util.function.Function;
 
 public class EntityPacketUuidRewriter {
+
+  private static final boolean DEBUG = false;
+  private static final Logger logger = LogManager.getLogger(EntityPacketUuidRewriter.class);
 
   public static void rewriteS2C(VelocityServer server, Player connectionPlayer, PacketToRewriteEntityUuid packet) {
     rewrite(server, connectionPlayer, packet, Player::getOfflineUuid, Player::getUniqueId);
@@ -36,6 +41,10 @@ public class EntityPacketUuidRewriter {
 
   private static void rewrite(VelocityServer server, Player connectionPlayer, PacketToRewriteEntityUuid packet,
                               Function<Player, UUID> uuidFrom, Function<Player, UUID> uuidTo) {
+    if (DEBUG) {
+      logger.info("EPUR for {} start, packet {} ({} {})", connectionPlayer.getUsername(), packet.getClass().getSimpleName(), packet.isPlayer(), packet.getEntityUuid());
+    }
+
     var config = server.getConfiguration();
     if (!(config.isOnlineMode() && config.getPlayerInfoForwardingMode() == PlayerInfoForwarding.NONE)) {
       return;  // early return for performance optimization
@@ -48,15 +57,31 @@ public class EntityPacketUuidRewriter {
       return;
     }
 
+    if (DEBUG) {
+      logger.info("EPUR for {} check pass, uuid to rewrite: {}", connectionPlayer.getUsername(), uuid);
+    }
+
     // FIXME: inefficient implementation using for loop. Replace it with map lookup?
     for (Player player : server.getAllPlayers()) {
-      if (uuidFrom.apply(player).equals(uuid)) {
+      UUID serverUuid = uuidFrom.apply(player);
+      if (DEBUG) {
+        logger.info("EPUR for {} checking {} {}", connectionPlayer.getUsername(), player.getUsername(), serverUuid);
+      }
+      if (serverUuid.equals(uuid)) {
+        if (DEBUG) {
+          logger.info("EPUR for {} match {}", connectionPlayer.getUsername(), player.getUsername());
+        }
+
         UUID newUuid = uuidTo.apply(player);
         if (!newUuid.equals(uuid)) {
           packet.setEntityUuid(newUuid);
         }
         break;
       }
+    }
+
+    if (DEBUG) {
+      logger.info("EPUR for {} check end", connectionPlayer.getUsername());
     }
   }
 }
