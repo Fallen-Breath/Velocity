@@ -25,7 +25,10 @@ import io.netty.buffer.ByteBuf;
 
 import java.util.UUID;
 
-// [fallen's fork] player uuid rewrite - entity packet
+/**
+ * [fallen's fork] player uuid rewrite - entity packet
+ * used in mc < 1.20.2
+ */
 public class UrSpawnPlayerS2CPacket implements MinecraftPacket, PacketToRewriteEntityUuid {
 
   private int entityId;

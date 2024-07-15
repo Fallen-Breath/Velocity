@@ -25,13 +25,32 @@ import io.netty.buffer.ByteBuf;
 
 import java.util.UUID;
 
-// [fallen's fork] player uuid rewrite - entity packet
+/**
+ * [fallen's fork] player uuid rewrite - entity packet
+ * used in mc >= 1.20.2
+ */
 public class UrSpawnEntityS2CPacket implements MinecraftPacket, PacketToRewriteEntityUuid {
 
   private int entityId;
   private UUID entityUuid;
   private int entityType;
   private byte[] remainingBuf;
+
+  private boolean isPlayer;
+
+  private static int getPlayerEntityType(ProtocolVersion version) {
+    // https://wiki.vg/Entity_metadata#Mobs
+    // https://github.com/Fallen-Breath/mc-registry-dump
+    if (version.noLessThan(ProtocolVersion.MINECRAFT_1_20_5)) {
+      return 128;
+    } else if (version.noLessThan(ProtocolVersion.MINECRAFT_1_20_3)) {
+      return 124;
+    } else if (version.noLessThan(ProtocolVersion.MINECRAFT_1_20_2)) {
+      return 122;
+    } else {
+      throw new IllegalArgumentException("Unsupported protocol version: " + version);
+    }
+  }
 
   @Override
   public void decode(ByteBuf buf, ProtocolUtils.Direction direction, ProtocolVersion protocolVersion) {
@@ -40,6 +59,8 @@ public class UrSpawnEntityS2CPacket implements MinecraftPacket, PacketToRewriteE
     this.entityType = ProtocolUtils.readVarInt(buf);
     this.remainingBuf = new byte[buf.readableBytes()];
     buf.readBytes(this.remainingBuf);
+
+    this.isPlayer = this.entityType == getPlayerEntityType(protocolVersion);
   }
 
   @Override
@@ -57,9 +78,7 @@ public class UrSpawnEntityS2CPacket implements MinecraftPacket, PacketToRewriteE
 
   @Override
   public boolean isPlayer() {
-    // https://wiki.vg/Entity_metadata#Mobs
-    int playerEntityType = 122;  // mc1.20.2
-    return this.entityType == playerEntityType;
+    return this.isPlayer;
   }
 
   @Override

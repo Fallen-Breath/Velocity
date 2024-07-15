@@ -25,6 +25,9 @@ import io.netty.buffer.ByteBuf;
 
 import java.util.UUID;
 
+/**
+ * [fallen's fork] player uuid rewrite - entity packet
+ */
 public class UrSpectatorTeleportC2SPacket implements MinecraftPacket, PacketToRewriteEntityUuid {
 
   private UUID targetUuid;
