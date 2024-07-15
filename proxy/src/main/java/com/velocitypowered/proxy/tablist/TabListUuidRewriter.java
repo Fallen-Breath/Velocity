@@ -23,6 +23,8 @@ import com.velocitypowered.proxy.config.PlayerInfoForwarding;
 import com.velocitypowered.proxy.protocol.packet.LegacyPlayerListItemPacket;
 import com.velocitypowered.proxy.protocol.packet.RemovePlayerInfoPacket;
 import com.velocitypowered.proxy.protocol.packet.UpsertPlayerInfoPacket;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -32,6 +34,11 @@ import java.util.stream.Collectors;
  */
 public class TabListUuidRewriter {
 
+  // offline / server uuid -> online / client uuid
+  // this cache is necessary, cuz during processing the RemovePlayerInfoPacket, the player might have already disconnected
+  private static final Map<UUID, UUID> uuidMappingCache = new LinkedHashMap<>(16, 0.75f, true);
+  private static final int uuidMappingCacheCapacity = 1024;
+
   private static boolean shouldRewrite(VelocityServer server) {
     var config = server.getConfiguration();
     return config.isOnlineMode() && config.getPlayerInfoForwardingMode() == PlayerInfoForwarding.NONE;
@@ -40,13 +47,22 @@ public class TabListUuidRewriter {
   /**
    * Common use case: input uuid is an offline uuid, and we want to get its online uuid.
    */
-  private static Optional<UUID> getRealUuid(VelocityServer server, UUID playerUuid) {
-    for (Player player : server.getAllPlayers()) {
-      if (player.getOfflineUuid().equals(playerUuid)) {
-        return Optional.of(player.getUniqueId());
+  private static Optional<UUID> getClientsideUuid(VelocityServer server, UUID serverUuid) {
+    synchronized (uuidMappingCache) {
+      for (Player player : server.getAllPlayers()) {
+        uuidMappingCache.put(player.getOfflineUuid(), player.getUniqueId());
       }
+      while (uuidMappingCache.size() > uuidMappingCacheCapacity) {
+        uuidMappingCache.remove(uuidMappingCache.keySet().iterator().next());
+      }
+
+      for (Player player : server.getAllPlayers()) {
+        if (player.getOfflineUuid().equals(serverUuid)) {
+          return Optional.of(player.getUniqueId());
+        }
+      }
+      return Optional.ofNullable(uuidMappingCache.get(serverUuid));
     }
-    return Optional.empty();
   }
 
   /**
@@ -57,9 +73,9 @@ public class TabListUuidRewriter {
       return;
     }
     packet.getItems().replaceAll(item -> {
-      var realUuid = getRealUuid(server, item.getUuid());
-      if (realUuid.isPresent() && !realUuid.get().equals(item.getUuid())) {
-        var newItem = new LegacyPlayerListItemPacket.Item(realUuid.get());
+      var clientSideUuid = getClientsideUuid(server, item.getUuid());
+      if (clientSideUuid.isPresent() && !clientSideUuid.get().equals(item.getUuid())) {
+        var newItem = new LegacyPlayerListItemPacket.Item(clientSideUuid.get());
 
         newItem.setName(item.getName());
         newItem.setProperties(item.getProperties());
@@ -83,9 +99,9 @@ public class TabListUuidRewriter {
       return;
     }
     packet.getEntries().replaceAll(entry -> {
-      var realUuid = getRealUuid(server, entry.getProfileId());
-      if (realUuid.isPresent() && !realUuid.get().equals(entry.getProfileId())) {
-        var newEntry = new UpsertPlayerInfoPacket.Entry(realUuid.get());
+      var clientSideUuid = getClientsideUuid(server, entry.getProfileId());
+      if (clientSideUuid.isPresent() && !clientSideUuid.get().equals(entry.getProfileId())) {
+        var newEntry = new UpsertPlayerInfoPacket.Entry(clientSideUuid.get());
 
         newEntry.setProfile(entry.getProfile());
         newEntry.setListed(entry.isListed());
@@ -108,9 +124,15 @@ public class TabListUuidRewriter {
     if (!shouldRewrite(server)) {
       return;
     }
+
     var newProfiles = packet.getProfilesToRemove().stream()
-        .map(uuid -> getRealUuid(server, uuid).orElse(uuid))
+        .map(uuid -> getClientsideUuid(server, uuid).orElse(uuid))
         .collect(Collectors.toList());
+
+    synchronized (uuidMappingCache) {
+      packet.getProfilesToRemove().forEach(uuidMappingCache::remove);
+    }
+
     packet.setProfilesToRemove(newProfiles);
   }
 }
