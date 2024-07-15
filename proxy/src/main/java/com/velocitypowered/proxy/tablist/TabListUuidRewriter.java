@@ -37,31 +37,23 @@ public class TabListUuidRewriter {
   // offline / server uuid -> online / client uuid
   // this cache is necessary, cuz during processing the RemovePlayerInfoPacket, the player might have already disconnected
   private static final Map<UUID, UUID> uuidMappingCache = new LinkedHashMap<>(16, 0.75f, true);
-  private static final int uuidMappingCacheCapacity = 1024;
 
   private static boolean shouldRewrite(VelocityServer server) {
     var config = server.getConfiguration();
     return config.isOnlineMode() && config.getPlayerInfoForwardingMode() == PlayerInfoForwarding.NONE;
   }
 
-  /**
-   * Common use case: input uuid is an offline uuid, and we want to get its online uuid.
-   */
-  private static Optional<UUID> getClientsideUuid(VelocityServer server, UUID serverUuid) {
+  private static Map<UUID, UUID> makeUuidMappingView(VelocityServer server) {
     synchronized (uuidMappingCache) {
       for (Player player : server.getAllPlayers()) {
         uuidMappingCache.put(player.getOfflineUuid(), player.getUniqueId());
       }
-      while (uuidMappingCache.size() > uuidMappingCacheCapacity) {
+
+      // allow at most 1024 players to disconnect at the same time
+      while (uuidMappingCache.size() > server.getAllPlayers().size() + 1024) {
         uuidMappingCache.remove(uuidMappingCache.keySet().iterator().next());
       }
-
-      for (Player player : server.getAllPlayers()) {
-        if (player.getOfflineUuid().equals(serverUuid)) {
-          return Optional.of(player.getUniqueId());
-        }
-      }
-      return Optional.ofNullable(uuidMappingCache.get(serverUuid));
+      return Map.copyOf(uuidMappingCache);
     }
   }
 
@@ -72,10 +64,12 @@ public class TabListUuidRewriter {
     if (!shouldRewrite(server)) {
       return;
     }
+
+    var uuidMapping = makeUuidMappingView(server);
     packet.getItems().replaceAll(item -> {
-      var clientSideUuid = getClientsideUuid(server, item.getUuid());
-      if (clientSideUuid.isPresent() && !clientSideUuid.get().equals(item.getUuid())) {
-        var newItem = new LegacyPlayerListItemPacket.Item(clientSideUuid.get());
+      var clientSideUuid = uuidMapping.get(item.getUuid());
+      if (clientSideUuid != null && !clientSideUuid.equals(item.getUuid())) {
+        var newItem = new LegacyPlayerListItemPacket.Item(clientSideUuid);
 
         newItem.setName(item.getName());
         newItem.setProperties(item.getProperties());
@@ -98,10 +92,12 @@ public class TabListUuidRewriter {
     if (!shouldRewrite(server)) {
       return;
     }
+
+    var uuidMapping = makeUuidMappingView(server);
     packet.getEntries().replaceAll(entry -> {
-      var clientSideUuid = getClientsideUuid(server, entry.getProfileId());
-      if (clientSideUuid.isPresent() && !clientSideUuid.get().equals(entry.getProfileId())) {
-        var newEntry = new UpsertPlayerInfoPacket.Entry(clientSideUuid.get());
+      var clientSideUuid = uuidMapping.get(entry.getProfileId());
+      if (clientSideUuid != null && !clientSideUuid.equals(entry.getProfileId())) {
+        var newEntry = new UpsertPlayerInfoPacket.Entry(clientSideUuid);
 
         newEntry.setProfile(entry.getProfile());
         newEntry.setListed(entry.isListed());
@@ -125,8 +121,9 @@ public class TabListUuidRewriter {
       return;
     }
 
+    var uuidMapping = makeUuidMappingView(server);
     var newProfiles = packet.getProfilesToRemove().stream()
-        .map(uuid -> getClientsideUuid(server, uuid).orElse(uuid))
+        .map(serverUuid -> Optional.ofNullable(uuidMapping.get(serverUuid)).orElse(serverUuid))
         .collect(Collectors.toList());
 
     synchronized (uuidMappingCache) {
