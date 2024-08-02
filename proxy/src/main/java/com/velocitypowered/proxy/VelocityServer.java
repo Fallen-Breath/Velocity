@@ -53,6 +53,7 @@ import com.velocitypowered.proxy.event.VelocityEventManager;
 import com.velocitypowered.proxy.network.ConnectionManager;
 import com.velocitypowered.proxy.plugin.VelocityPluginManager;
 import com.velocitypowered.proxy.protocol.ProtocolUtils;
+import com.velocitypowered.proxy.protocol.packet.uuidrewrite.TabListUuidRewriter;
 import com.velocitypowered.proxy.protocol.util.FaviconSerializer;
 import com.velocitypowered.proxy.protocol.util.GameProfileSerializer;
 import com.velocitypowered.proxy.scheduler.VelocityScheduler;
@@ -654,6 +655,9 @@ public class VelocityServer implements ProxyServer, ForwardingAudience {
     connectionsByName.remove(connection.getUsername().toLowerCase(Locale.US), connection);
     connectionsByUuid.remove(connection.getUniqueId(), connection);
     connection.disconnected();
+
+    // [fallen's fork] player uuid rewrite -
+    TabListUuidRewriter.onPlayerDisconnect(this, connection);
   }
 
   @Override

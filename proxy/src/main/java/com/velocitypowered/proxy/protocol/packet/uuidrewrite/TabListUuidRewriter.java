@@ -17,13 +17,18 @@
 
 package com.velocitypowered.proxy.protocol.packet.uuidrewrite;
 
+import com.velocitypowered.api.network.ProtocolVersion;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.proxy.VelocityServer;
 import com.velocitypowered.proxy.config.PlayerInfoForwarding;
+import com.velocitypowered.proxy.connection.backend.VelocityServerConnection;
+import com.velocitypowered.proxy.connection.client.ConnectedPlayer;
+import com.velocitypowered.proxy.protocol.MinecraftPacket;
 import com.velocitypowered.proxy.protocol.packet.LegacyPlayerListItemPacket;
 import com.velocitypowered.proxy.protocol.packet.RemovePlayerInfoPacket;
 import com.velocitypowered.proxy.protocol.packet.UpsertPlayerInfoPacket;
-import java.util.LinkedHashMap;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -34,26 +39,53 @@ import java.util.stream.Collectors;
  */
 public class TabListUuidRewriter {
 
-  // offline / server uuid -> online / client uuid
-  // this cache is necessary, cuz during processing the RemovePlayerInfoPacket, the player might have already disconnected
-  private static final Map<UUID, UUID> uuidMappingCache = new LinkedHashMap<>(16, 0.75f, true);
-
+  @SuppressWarnings("BooleanMethodIsAlwaysInverted")
   private static boolean shouldRewrite(VelocityServer server) {
     var config = server.getConfiguration();
     return config.isOnlineMode() && config.getPlayerInfoForwardingMode() == PlayerInfoForwarding.NONE;
   }
 
+  // offline / server uuid -> online / client uuid
   private static Map<UUID, UUID> makeUuidMappingView(VelocityServer server) {
-    synchronized (uuidMappingCache) {
-      for (Player player : server.getAllPlayers()) {
-        uuidMappingCache.put(player.getOfflineUuid(), player.getUniqueId());
-      }
+    Map<UUID, UUID> view = new HashMap<>();
+    for (Player player : server.getAllPlayers()) {
+      view.put(player.getOfflineUuid(), player.getUniqueId());
+    }
+    return view;
+  }
 
-      // allow at most 1024 players to disconnect at the same time
-      while (uuidMappingCache.size() > server.getAllPlayers().size() + 1024) {
-        uuidMappingCache.remove(uuidMappingCache.keySet().iterator().next());
+  // [fallen's fork] player uuid rewrite
+  // send the missing player tab-list removal packets to other players in the mc server
+  // see bungeecord net.md_5.bungee.connection.UpstreamBridge#disconnected
+  public static void onPlayerDisconnect(VelocityServer server, ConnectedPlayer player) {
+    if (!shouldRewrite(server)) {
+      return;
+    }
+
+    VelocityServerConnection connectedServer = player.getConnectedServer();
+    if (connectedServer == null) {
+      return;
+    }
+
+    var oldPacket = new LegacyPlayerListItemPacket(
+            LegacyPlayerListItemPacket.REMOVE_PLAYER,
+            Collections.singletonList(new LegacyPlayerListItemPacket.Item(player.getUniqueId()))
+    );
+    var newPacket = new RemovePlayerInfoPacket(
+            Collections.singleton(player.getUniqueId())
+    );
+
+    for (Player otherPlayer : connectedServer.getServer().getPlayersConnected()) {
+      if (otherPlayer != player && otherPlayer instanceof ConnectedPlayer) {
+        var connection = ((ConnectedPlayer)otherPlayer).getConnection();
+        MinecraftPacket packet;
+        if (connection.getProtocolVersion().noLessThan(ProtocolVersion.MINECRAFT_1_19_3)) {
+          packet = newPacket;
+        } else {
+          packet = oldPacket;
+        }
+        connection.write(packet);
       }
-      return Map.copyOf(uuidMappingCache);
     }
   }
 
@@ -125,10 +157,6 @@ public class TabListUuidRewriter {
     var newProfiles = packet.getProfilesToRemove().stream()
         .map(serverUuid -> Optional.ofNullable(uuidMapping.get(serverUuid)).orElse(serverUuid))
         .collect(Collectors.toList());
-
-    synchronized (uuidMappingCache) {
-      packet.getProfilesToRemove().forEach(uuidMappingCache::remove);
-    }
 
     packet.setProfilesToRemove(newProfiles);
   }
