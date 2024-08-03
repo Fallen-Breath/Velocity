@@ -15,12 +15,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.velocitypowered.proxy.protocol.packet.uuidrewrite;
+package com.velocitypowered.proxy.uuidrewrite;
 
 import com.velocitypowered.api.network.ProtocolVersion;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.proxy.VelocityServer;
-import com.velocitypowered.proxy.config.PlayerInfoForwarding;
 import com.velocitypowered.proxy.connection.backend.VelocityServerConnection;
 import com.velocitypowered.proxy.connection.client.ConnectedPlayer;
 import com.velocitypowered.proxy.protocol.MinecraftPacket;
@@ -28,10 +27,7 @@ import com.velocitypowered.proxy.protocol.packet.LegacyPlayerListItemPacket;
 import com.velocitypowered.proxy.protocol.packet.RemovePlayerInfoPacket;
 import com.velocitypowered.proxy.protocol.packet.UpsertPlayerInfoPacket;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -41,24 +37,21 @@ public class TabListUuidRewriter {
 
   @SuppressWarnings("BooleanMethodIsAlwaysInverted")
   private static boolean shouldRewrite(VelocityServer server) {
-    var config = server.getConfiguration();
-    return config.isOnlineMode() && config.getPlayerInfoForwardingMode() == PlayerInfoForwarding.NONE;
+    return UuidRewriteUtils.isUuidRewriteEnabled(server.getConfiguration());
   }
 
-  // offline / server uuid -> online / client uuid
-  private static Map<UUID, UUID> makeUuidMappingView(VelocityServer server) {
-    Map<UUID, UUID> view = new HashMap<>();
-    for (Player player : server.getAllPlayers()) {
-      view.put(player.getOfflineUuid(), player.getUniqueId());
-    }
-    return view;
-  }
-
-  // [fallen's fork] player uuid rewrite
-  // send the missing player tab-list removal packets to other players in the mc server
-  // see bungeecord net.md_5.bungee.connection.UpstreamBridge#disconnected
-  public static void onPlayerDisconnect(VelocityServer server, ConnectedPlayer player) {
+  /**
+   * [fallen's fork] player uuid rewrite
+   * send the missing player tab-list removal packets to other players in the mc server
+   * see bungeecord net.md_5.bungee.connection.UpstreamBridge#disconnected
+   */
+  public static void sendRewrittenTabListRemovalPackets(VelocityServer server, ConnectedPlayer player) {
     if (!shouldRewrite(server)) {
+      return;
+    }
+    if (server.getConfiguration().isUuidRewriteDatabaseEnabled()) {
+      // if the database is enabled, then no need for this bungee hack
+      // cuz the mapping is always available
       return;
     }
 
@@ -77,7 +70,7 @@ public class TabListUuidRewriter {
 
     for (Player otherPlayer : connectedServer.getServer().getPlayersConnected()) {
       if (otherPlayer != player && otherPlayer instanceof ConnectedPlayer) {
-        var connection = ((ConnectedPlayer)otherPlayer).getConnection();
+        var connection = ((ConnectedPlayer) otherPlayer).getConnection();
         MinecraftPacket packet;
         if (connection.getProtocolVersion().noLessThan(ProtocolVersion.MINECRAFT_1_19_3)) {
           packet = newPacket;
@@ -97,9 +90,9 @@ public class TabListUuidRewriter {
       return;
     }
 
-    var uuidMapping = makeUuidMappingView(server);
+    var rewriter = UuidRewriter.create(server);
     packet.getItems().replaceAll(item -> {
-      var clientSideUuid = uuidMapping.get(item.getUuid());
+      var clientSideUuid = rewriter.toClient(item.getUuid());
       if (clientSideUuid != null && !clientSideUuid.equals(item.getUuid())) {
         var newItem = new LegacyPlayerListItemPacket.Item(clientSideUuid);
 
@@ -125,9 +118,9 @@ public class TabListUuidRewriter {
       return;
     }
 
-    var uuidMapping = makeUuidMappingView(server);
+    var rewriter = UuidRewriter.create(server);
     packet.getEntries().replaceAll(entry -> {
-      var clientSideUuid = uuidMapping.get(entry.getProfileId());
+      var clientSideUuid = rewriter.toClient(entry.getProfileId());
       if (clientSideUuid != null && !clientSideUuid.equals(entry.getProfileId())) {
         var newEntry = new UpsertPlayerInfoPacket.Entry(clientSideUuid);
 
@@ -153,9 +146,9 @@ public class TabListUuidRewriter {
       return;
     }
 
-    var uuidMapping = makeUuidMappingView(server);
+    var rewriter = UuidRewriter.create(server);
     var newProfiles = packet.getProfilesToRemove().stream()
-        .map(serverUuid -> Optional.ofNullable(uuidMapping.get(serverUuid)).orElse(serverUuid))
+        .map(serverUuid -> Optional.ofNullable(rewriter.toClient(serverUuid)).orElse(serverUuid))
         .collect(Collectors.toList());
 
     packet.setProfilesToRemove(newProfiles);

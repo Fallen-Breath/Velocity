@@ -53,7 +53,6 @@ import com.velocitypowered.proxy.event.VelocityEventManager;
 import com.velocitypowered.proxy.network.ConnectionManager;
 import com.velocitypowered.proxy.plugin.VelocityPluginManager;
 import com.velocitypowered.proxy.protocol.ProtocolUtils;
-import com.velocitypowered.proxy.protocol.packet.uuidrewrite.TabListUuidRewriter;
 import com.velocitypowered.proxy.protocol.util.FaviconSerializer;
 import com.velocitypowered.proxy.protocol.util.GameProfileSerializer;
 import com.velocitypowered.proxy.scheduler.VelocityScheduler;
@@ -64,6 +63,7 @@ import com.velocitypowered.proxy.util.ResourceUtils;
 import com.velocitypowered.proxy.util.VelocityChannelRegistrar;
 import com.velocitypowered.proxy.util.ratelimit.Ratelimiter;
 import com.velocitypowered.proxy.util.ratelimit.Ratelimiters;
+import com.velocitypowered.proxy.uuidrewrite.UuidRewriteHooks;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -263,6 +263,9 @@ public class VelocityServer implements ProxyServer, ForwardingAudience {
     if (configuration.isQueryEnabled()) {
       this.cm.queryBind(configuration.getBind().getHostString(), configuration.getQueryPort());
     }
+
+    // [fallen's fork] player uuid rewrite - lifecycle hook
+    UuidRewriteHooks.onServerStart(this);
 
     Metrics.VelocityMetrics.startMetrics(this, configuration.getMetrics());
   }
@@ -513,6 +516,9 @@ public class VelocityServer implements ProxyServer, ForwardingAudience {
         player.disconnect(reason);
       }
 
+      // [fallen's fork] player uuid rewrite - lifecycle hook
+      UuidRewriteHooks.onServerStop(this);
+
       try {
         boolean timedOut = false;
 
@@ -643,6 +649,10 @@ public class VelocityServer implements ProxyServer, ForwardingAudience {
       connectionsByName.put(lowerName, connection);
       connectionsByUuid.put(connection.getUniqueId(), connection);
     }
+
+    // [fallen's fork] player uuid rewrite - lifecycle hook
+    UuidRewriteHooks.onPlayerConnect(this, connection);
+
     return true;
   }
 
@@ -656,8 +666,8 @@ public class VelocityServer implements ProxyServer, ForwardingAudience {
     connectionsByUuid.remove(connection.getUniqueId(), connection);
     connection.disconnected();
 
-    // [fallen's fork] player uuid rewrite -
-    TabListUuidRewriter.onPlayerDisconnect(this, connection);
+    // [fallen's fork] player uuid rewrite - lifecycle hook
+    UuidRewriteHooks.onPlayerDisconnect(this, connection);
   }
 
   @Override

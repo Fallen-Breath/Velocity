@@ -86,6 +86,9 @@ public class VelocityConfiguration implements ProxyConfig {
   // [fallen's fork] mojang auth proxy
   @Expose
   private final AuthProxy authProxy;
+  // [fallen's fork] player uuid rewrite
+  @Expose
+  private final UuidRewrite uuidRewrite;
 
   @Expose
   private final Query query;
@@ -99,11 +102,13 @@ public class VelocityConfiguration implements ProxyConfig {
 
   private VelocityConfiguration(Servers servers, ForcedHosts forcedHosts, Advanced advanced,
       AuthProxy authProxy,  // [fallen's fork] mojang auth proxy
+      UuidRewrite uuidRewrite,  // [fallen's fork] player uuid rewrite
       Query query, Metrics metrics) {
     this.servers = servers;
     this.forcedHosts = forcedHosts;
     this.advanced = advanced;
     this.authProxy = authProxy;  // [fallen's fork] mojang auth proxy
+    this.uuidRewrite = uuidRewrite;  // [fallen's fork] player uuid rewrite
     this.query = query;
     this.metrics = metrics;
   }
@@ -115,6 +120,7 @@ public class VelocityConfiguration implements ProxyConfig {
       boolean enablePlayerAddressLogging, Servers servers, ForcedHosts forcedHosts,
       Advanced advanced,
       AuthProxy authProxy,  // [fallen's fork] mojang auth proxy
+      UuidRewrite uuidRewrite,  // [fallen's fork] player uuid rewrite
       Query query, Metrics metrics, boolean forceKeyAuthentication) {
     this.bind = bind;
     this.motd = motd;
@@ -131,6 +137,7 @@ public class VelocityConfiguration implements ProxyConfig {
     this.forcedHosts = forcedHosts;
     this.advanced = advanced;
     this.authProxy = authProxy;  // [fallen's fork] mojang auth proxy
+    this.uuidRewrite = uuidRewrite;  // [fallen's fork] player uuid rewrite
     this.query = query;
     this.metrics = metrics;
     this.forceKeyAuthentication = forceKeyAuthentication;
@@ -431,6 +438,24 @@ public class VelocityConfiguration implements ProxyConfig {
   }
   // [fallen's fork] mojang auth proxy ends
 
+  // [fallen's fork] player uuid rewrite starts
+  public boolean isUuidRewriteEnabled() {
+    return uuidRewrite.isEnabled();
+  }
+
+  public boolean isUuidRewriteDatabaseEnabled() {
+    return uuidRewrite.isDatabaseEnabled();
+  }
+
+  public void setUuidRewriteDatabaseEnabled(boolean b) {
+    uuidRewrite.setDatabaseEnabled(b);
+  }
+
+  public String getUuidRewriteDatabasePath() {
+    return uuidRewrite.getDatabasePath();
+  }
+  // [fallen's fork] player uuid rewrite ends
+
   public boolean isForceKeyAuthentication() {
     return forceKeyAuthentication;
   }
@@ -524,7 +549,8 @@ public class VelocityConfiguration implements ProxyConfig {
       final CommentedConfig serversConfig = config.get("servers");
       final CommentedConfig forcedHostsConfig = config.get("forced-hosts");
       final CommentedConfig advancedConfig = config.get("advanced");
-      final CommentedConfig autoProxy = config.get("auth-proxy");
+      final CommentedConfig autoProxy = config.get("auth-proxy");  // [fallen's fork] mojang auth proxy
+      final CommentedConfig uuidRewrite = config.get("uuid-rewrite");  // [fallen's fork] player uuid rewrite
       final CommentedConfig queryConfig = config.get("query");
       final CommentedConfig metricsConfig = config.get("metrics");
       final PlayerInfoForwarding forwardingMode = config.getEnumOrElse(
@@ -566,7 +592,8 @@ public class VelocityConfiguration implements ProxyConfig {
               new Servers(serversConfig),
               new ForcedHosts(forcedHostsConfig),
               new Advanced(advancedConfig),
-              new AuthProxy(autoProxy),
+              new AuthProxy(autoProxy),  // [fallen's fork] mojang auth proxy
+              new UuidRewrite(uuidRewrite),  // [fallen's fork] player uuid rewrite
               new Query(queryConfig),
               new Metrics(metricsConfig),
               forceKeyAuthentication
@@ -891,6 +918,42 @@ public class VelocityConfiguration implements ProxyConfig {
 
     public int getPort() {
       return port;
+    }
+  }
+
+  /**
+   * [fallen's fork] player uuid rewrite - config.
+   */
+  private static class UuidRewrite {
+    @Expose
+    private boolean enabled = true;
+    @Expose
+    private boolean databaseEnabled = false;
+    @Expose
+    private String databasePath = "uuid_mapping.db";
+
+    public UuidRewrite(CommentedConfig config) {
+      if (config != null) {
+        this.enabled = config.getOrElse("enabled", true);
+        this.databaseEnabled = config.getOrElse("databaseEnabled", false);
+        this.databasePath = config.getOrElse("databasePath", "uuid_mapping.db");
+      }
+    }
+
+    public boolean isEnabled() {
+      return enabled;
+    }
+
+    public boolean isDatabaseEnabled() {
+      return databaseEnabled;
+    }
+
+    public void setDatabaseEnabled(boolean databaseEnabled) {
+      this.databaseEnabled = databaseEnabled;
+    }
+
+    public String getDatabasePath() {
+      return databasePath;
     }
   }
 

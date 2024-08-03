@@ -57,6 +57,7 @@ nightconfig = "com.electronwill.night-config:toml:3.6.7"
 slf4j = "org.slf4j:slf4j-api:2.0.12"
 snakeyaml = "org.yaml:snakeyaml:1.33"
 spotbugs-annotations = "com.github.spotbugs:spotbugs-annotations:4.7.3"
+sqlite-jdbc = "org.xerial:sqlite-jdbc:3.46.0.1"  # [fallen's fork] player uuid rewrite - uuid database
 terminalconsoleappender = "net.minecrell:terminalconsoleappender:1.3.0"
 
 [bundles]

@@ -72,10 +72,10 @@ import com.velocitypowered.proxy.protocol.packet.chat.session.SessionPlayerChatP
 import com.velocitypowered.proxy.protocol.packet.chat.session.SessionPlayerCommandPacket;
 import com.velocitypowered.proxy.protocol.packet.config.FinishedUpdatePacket;
 import com.velocitypowered.proxy.protocol.packet.title.GenericTitlePacket;
-import com.velocitypowered.proxy.protocol.packet.uuidrewrite.EntityPacketUuidRewriter;
 import com.velocitypowered.proxy.protocol.packet.uuidrewrite.UrSpectatorTeleportC2SPacket;
 import com.velocitypowered.proxy.protocol.util.PluginMessageUtil;
 import com.velocitypowered.proxy.util.CharacterUtil;
+import com.velocitypowered.proxy.uuidrewrite.EntityPacketUuidRewriter;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;

@@ -9,11 +9,18 @@ A list of small tweaks I made:
 - Implement player UUID rewrite, like what bungeecord does. 
   Make setup with online velocity + offline Minecraft server work correctly
   (`online-mode=true` on velocity + `online-mode=false` on backend mc servers + `player-info-forwarding-mode=none`)
-  - TabList packets rewrite
-    - Affects `LegacyPlayerListItemPacket`, `UpsertPlayerInfoPacket`, `RemovePlayerInfoPacket` packets
-    - Rewrites player UUIDs inside those packets to their UUIDs in the velocity server
-  - Entity packets rewrite
-    - Rewrites player UUIDs inside player creation packets and spectator teleport packets, to their UUIDs in the velocity server
+  - Packets to rewrite:
+    - TabList packets
+      - Affects `LegacyPlayerListItemPacket`, `UpsertPlayerInfoPacket`, `RemovePlayerInfoPacket` packets
+      - Rewrites player UUIDs inside those packets to their UUIDs in the velocity server
+    - Entity packets
+      - Rewrites player UUIDs inside player creation packets and spectator teleport packets, to their UUIDs in the velocity server
+  - All related configs are under section `uuid-rewrite` in `velocity.toml`
+  - Optional external uuid mapping sqlite database support
+    - Enabled with `databaseEnabled = true`, database path configurable with `databasePath`
+    - Mapping between online / offline uuid will be updated on player connected
+    - The sqlite database file can be shared between multiple velocity instances
+  - UUID rewrite can be disabled by setting `enabled = false`
 
 # Velocity
 

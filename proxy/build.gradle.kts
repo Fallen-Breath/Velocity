@@ -126,6 +126,7 @@ dependencies {
     implementation(libs.lmbda)
     implementation(libs.asm)
     implementation(libs.bundles.flare)
+    implementation(libs.sqlite.jdbc)  // [fallen's fork] player uuid rewrite - uuid database
     compileOnly(libs.spotbugs.annotations)
     compileOnly(libs.auto.service.annotations)
     testImplementation(libs.mockito)
