@@ -81,6 +81,8 @@ public class UuidMappingDatabase {
       stmt.executeUpdate("CREATE INDEX IF NOT EXISTS idx_last_used ON uuid_mapping (updated_at)");
       stmt.getConnection().commit();
     }
+
+    this.vacuumSqlite();
   }
 
   public void close() {
@@ -131,9 +133,6 @@ public class UuidMappingDatabase {
     return null;
   }
 
-  private long lastVacuumMilli = 0;
-  private final Object vacuumLock = new Object();
-
   public void createNewEntry(UUID onlineUuid, UUID offlineUuid, String playerName) {
     if (!this.enabled) {
       return;
@@ -159,13 +158,6 @@ public class UuidMappingDatabase {
       }
     } catch (SQLException sqlException) {
       logger.error("createNewEntry existence check failed", sqlException);
-    }
-
-    synchronized (this.vacuumLock) {
-      if (now - this.lastVacuumMilli >= 24 * 60 * 60) {  // 1day
-        this.vacuumSqlite();
-        this.lastVacuumMilli = now;
-      }
     }
 
     logger.debug("Create or update uuid mapping entry {} {} {}", onlineUuid, offlineUuid, playerName);
