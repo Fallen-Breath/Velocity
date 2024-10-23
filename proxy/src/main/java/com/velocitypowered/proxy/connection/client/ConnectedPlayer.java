@@ -70,6 +70,7 @@ import com.velocitypowered.proxy.connection.util.ConnectionRequestResults.Impl;
 import com.velocitypowered.proxy.connection.util.VelocityInboundConnection;
 import com.velocitypowered.proxy.protocol.StateRegistry;
 import com.velocitypowered.proxy.protocol.netty.MinecraftEncoder;
+import com.velocitypowered.proxy.protocol.packet.BundleDelimiterPacket;
 import com.velocitypowered.proxy.protocol.packet.ClientSettingsPacket;
 import com.velocitypowered.proxy.protocol.packet.ClientboundCookieRequestPacket;
 import com.velocitypowered.proxy.protocol.packet.ClientboundStoreCookiePacket;
@@ -112,6 +113,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import net.kyori.adventure.audience.MessageType;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.identity.Identity;
@@ -154,6 +156,7 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
    */
   private final MinecraftConnection connection;
   private final @Nullable InetSocketAddress virtualHost;
+  private final @Nullable String rawVirtualHost;
   private GameProfile profile;
   private PermissionFunction permissionFunction;
   private int tryIndex = 0;
@@ -193,12 +196,13 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
   private final UUID offlineUuid;
 
   ConnectedPlayer(VelocityServer server, GameProfile profile, MinecraftConnection connection,
-                  @Nullable InetSocketAddress virtualHost, boolean onlineMode,
+                  @Nullable InetSocketAddress virtualHost, @Nullable String rawVirtualHost, boolean onlineMode,
                   @Nullable IdentifiedKey playerKey) {
     this.server = server;
     this.profile = profile;
     this.connection = connection;
     this.virtualHost = virtualHost;
+    this.rawVirtualHost = rawVirtualHost;
     this.permissionFunction = PermissionFunction.ALWAYS_UNDEFINED;
     this.connectionPhase = connection.getType().getInitialClientPhase();
     this.onlineMode = onlineMode;
@@ -365,6 +369,11 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
   @Override
   public Optional<InetSocketAddress> getVirtualHost() {
     return Optional.ofNullable(virtualHost);
+  }
+
+  @Override
+  public Optional<String> getRawVirtualHost() {
+    return Optional.ofNullable(rawVirtualHost);
   }
 
   void setPermissionFunction(PermissionFunction permissionFunction) {
@@ -645,6 +654,10 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
 
   public @Nullable VelocityServerConnection getConnectionInFlight() {
     return connectionInFlight;
+  }
+
+  public VelocityServerConnection getConnectionInFlightOrConnectedServer() {
+    return connectionInFlight != null ? connectionInFlight : connectedServer;
   }
 
   public void resetInFlightConnection() {
@@ -1253,20 +1266,49 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
   }
 
   /**
+   * Forwards the keep alive packet to the backend server it belongs to.
+   * This is either the connection in flight or the connected server.
+   */
+  public boolean forwardKeepAlive(final KeepAlivePacket packet) {
+    if (!this.sendKeepAliveToBackend(connectedServer, packet)) {
+      return this.sendKeepAliveToBackend(connectionInFlight, packet);
+    }
+    return false;
+  }
+
+  private boolean sendKeepAliveToBackend(final @Nullable VelocityServerConnection serverConnection, final @NotNull KeepAlivePacket packet) {
+    if (serverConnection != null) {
+      final Long sentTime = serverConnection.getPendingPings().remove(packet.getRandomId());
+      if (sentTime != null) {
+        final MinecraftConnection smc = serverConnection.getConnection();
+        if (smc != null) {
+          setPing(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - sentTime));
+          smc.write(packet);
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
    * Switches the connection to the client into config state.
    */
   public void switchToConfigState() {
-    CompletableFuture.runAsync(() -> {
-      connection.write(StartUpdatePacket.INSTANCE);
-      connection.getChannel().pipeline()
-              .get(MinecraftEncoder.class).setState(StateRegistry.CONFIG);
-      // Make sure we don't send any play packets to the player after update start
-      connection.addPlayPacketQueueHandler();
-      server.getEventManager().fireAndForget(new PlayerEnterConfigurationEvent(this, connectionInFlight));
-    }, connection.eventLoop()).exceptionally((ex) -> {
-      logger.error("Error switching player connection to config state", ex);
-      return null;
-    });
+    server.getEventManager().fire(new PlayerEnterConfigurationEvent(this, getConnectionInFlightOrConnectedServer()))
+        .completeOnTimeout(null, 5, TimeUnit.SECONDS).thenRunAsync(() -> {
+          if (bundleHandler.isInBundleSession()) {
+            bundleHandler.toggleBundleSession();
+            connection.write(BundleDelimiterPacket.INSTANCE);
+          }
+          connection.write(StartUpdatePacket.INSTANCE);
+          connection.getChannel().pipeline().get(MinecraftEncoder.class).setState(StateRegistry.CONFIG);
+          // Make sure we don't send any play packets to the player after update start
+          connection.addPlayPacketQueueHandler();
+        }, connection.eventLoop()).exceptionally((ex) -> {
+          logger.error("Error switching player connection to config state", ex);
+          return null;
+        });
   }
 
   /**
