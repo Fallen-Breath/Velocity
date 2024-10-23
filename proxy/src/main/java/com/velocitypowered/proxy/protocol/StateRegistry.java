@@ -708,29 +708,29 @@ public enum StateRegistry {
           map(0x7B, MINECRAFT_1_21, false),
           map(0x82, MINECRAFT_1_21_2, false));
 
-	    // [fallen's fork] player uuid rewrite - entity packet
-	    clientbound.register(UrSpawnPlayerS2CPacket.class, UrSpawnPlayerS2CPacket::new,
-			    map(0x05, MINECRAFT_1_8, false),
-			    map(0x04, MINECRAFT_1_16, false),
-			    map(0x02, MINECRAFT_1_19, false),
-			    map(0x03, MINECRAFT_1_19_4, false),
-			    map(-1, MINECRAFT_1_20_2, false));
-	    clientbound.register(UrSpawnEntityS2CPacket.class, UrSpawnEntityS2CPacket::new,
-			    map(0x01, MINECRAFT_1_20_2, false));
-	    serverbound.register(UrSpectatorTeleportC2SPacket.class, UrSpectatorTeleportC2SPacket::new,
-			    map(0x18, MINECRAFT_1_8, false),
-			    map(0x1B, MINECRAFT_1_9, false),
-			    map(0x1E, MINECRAFT_1_12, false),
-			    map(0x28, MINECRAFT_1_13, false),
-			    map(0x2B, MINECRAFT_1_14, false),
-			    map(0x2C, MINECRAFT_1_16, false),
-			    map(0x2D, MINECRAFT_1_16_2, false),
-			    map(0x2F, MINECRAFT_1_19, false),
-			    map(0x30, MINECRAFT_1_19_1, false),
-			    map(0x33, MINECRAFT_1_20_2, false),
-			    map(0x34, MINECRAFT_1_20_3, false),
-			    map(0x37, MINECRAFT_1_20_5, false));
-	    // [fallen's fork] ends
+      // [fallen's fork] player uuid rewrite - entity packet
+      clientbound.register(UrSpawnPlayerS2CPacket.class, UrSpawnPlayerS2CPacket::new,
+              map(0x05, MINECRAFT_1_8, false),
+              map(0x04, MINECRAFT_1_16, false),
+              map(0x02, MINECRAFT_1_19, false),
+              map(0x03, MINECRAFT_1_19_4, false),
+              map(-1, MINECRAFT_1_20_2, false));
+      clientbound.register(UrSpawnEntityS2CPacket.class, UrSpawnEntityS2CPacket::new,
+              map(0x01, MINECRAFT_1_20_2, false));
+      serverbound.register(UrSpectatorTeleportC2SPacket.class, UrSpectatorTeleportC2SPacket::new,
+              map(0x18, MINECRAFT_1_8, false),
+              map(0x1B, MINECRAFT_1_9, false),
+              map(0x1E, MINECRAFT_1_12, false),
+              map(0x28, MINECRAFT_1_13, false),
+              map(0x2B, MINECRAFT_1_14, false),
+              map(0x2C, MINECRAFT_1_16, false),
+              map(0x2D, MINECRAFT_1_16_2, false),
+              map(0x2F, MINECRAFT_1_19, false),
+              map(0x30, MINECRAFT_1_19_1, false),
+              map(0x33, MINECRAFT_1_20_2, false),
+              map(0x34, MINECRAFT_1_20_3, false),
+              map(0x37, MINECRAFT_1_20_5, false));
+      // [fallen's fork] ends
     }
   },
   LOGIN {

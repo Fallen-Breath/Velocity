@@ -41,7 +41,9 @@ public class UrSpawnEntityS2CPacket implements MinecraftPacket, PacketToRewriteE
   private static int getPlayerEntityType(ProtocolVersion version) {
     // https://wiki.vg/Entity_metadata#Mobs
     // https://github.com/Fallen-Breath/mc-registry-dump
-    if (version.noLessThan(ProtocolVersion.MINECRAFT_1_20_5)) {
+    if (version.noLessThan(ProtocolVersion.MINECRAFT_1_21_2)) {
+      return 148;
+    } else if (version.noLessThan(ProtocolVersion.MINECRAFT_1_20_5)) {
       return 128;
     } else if (version.noLessThan(ProtocolVersion.MINECRAFT_1_20_3)) {
       return 124;
