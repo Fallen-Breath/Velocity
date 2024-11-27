@@ -710,7 +710,8 @@ public enum StateRegistry {
 
       // [fallen's fork] player uuid rewrite - entity packet
       clientbound.register(UrSpawnPlayerS2CPacket.class, UrSpawnPlayerS2CPacket::new,
-              map(0x05, MINECRAFT_1_8, false),
+              map(0x0C, MINECRAFT_1_8, false),
+              map(0x05, MINECRAFT_1_9, false),
               map(0x04, MINECRAFT_1_16, false),
               map(0x02, MINECRAFT_1_19, false),
               map(0x03, MINECRAFT_1_19_4, false),
