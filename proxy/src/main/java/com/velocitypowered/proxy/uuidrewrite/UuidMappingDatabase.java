@@ -189,7 +189,7 @@ public class UuidMappingDatabase {
     try (var conn = this.dataSource.getConnection(); var stmt = conn.prepareStatement("VACUUM")) {
       stmt.executeUpdate();
     } catch (SQLException sqlException) {
-      logger.error("vacuumSqlite failed", sqlException);
+      logger.warn("vacuumSqlite failed: {}", sqlException.toString());
     }
   }
 }
